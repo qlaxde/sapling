@@ -44,6 +44,7 @@ import {useRunOperation} from './operationsState';
 import {useUncommittedSelection} from './partialSelection';
 import platform from './platform';
 import {optimisticMergeConflicts} from './previews';
+import {showComparison} from './ComparisonView/atoms';
 import {copyAndShowToast} from './toast';
 import {ChangedFileMode, ConflictType, succeedableRevset} from './types';
 import {usePromise} from './usePromise';
@@ -133,7 +134,11 @@ export function File({
         return;
       }
     }
-    platform.openFile(file.path);
+    if (comparison != null) {
+      showComparison(comparison, file.path);
+    } else {
+      platform.openFile(file.path);
+    }
   };
 
   return (
@@ -532,7 +537,7 @@ function PartialSelectionAction({file}: {file: UIChangedFile}) {
   );
 }
 
-// Left margin to "indendent" by roughly a checkbox width.
+// Left margin to "indented" by roughly a checkbox width.
 const leftMarginStyle: React.CSSProperties = {marginLeft: 'calc(2.5 * var(--pad))'};
 
 function MaybePartialSelection({file}: {file: UIChangedFile}) {

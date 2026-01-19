@@ -132,8 +132,8 @@ export default class ServerToClientAPI {
 
     if (repo.codeReviewProvider != null) {
       this.repoDisposables.push(
-        repo.codeReviewProvider.onChangeDiffSummaries(value => {
-          this.postMessage({type: 'fetchedDiffSummaries', summaries: value});
+        repo.codeReviewProvider.onChangeDiffSummaries((value, currentUser) => {
+          this.postMessage({type: 'fetchedDiffSummaries', summaries: value, currentUser});
         }),
       );
     }
@@ -516,7 +516,7 @@ export default class ServerToClientAPI {
       }
       case 'abortRunningOperation': {
         const {operationId} = data;
-        repo.abortRunningOpeation(operationId);
+        repo.abortRunningOperation(operationId);
         this.handleMaybeForgotOperation(operationId, repo);
         break;
       }
@@ -641,7 +641,7 @@ export default class ServerToClientAPI {
             uploadFile(this.logger, {filename, data: payload}),
           )
           .then((result: string) => {
-            this.logger.info('sucessfully uploaded file', filename, result);
+            this.logger.info('successfully uploaded file', filename, result);
             this.postMessage({type: 'uploadFileResult', id, result: {value: result}});
           })
           .catch((error: Error) => {

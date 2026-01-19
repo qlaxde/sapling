@@ -14,11 +14,12 @@ import {clearTrackedCache} from 'shared/LRU';
 import {BookmarksManagerMenu} from './BookmarksManager';
 import {BugButton} from './BugButton';
 import {BulkActionsMenu} from './BulkActionsMenu';
+import {CollapseAllStacksButton} from './CollapseAllStacksButton';
 import serverAPI from './ClientToServerAPI';
 import {CwdSelector} from './CwdSelector';
 import {DownloadCommitsTooltipButton} from './DownloadCommitsMenu';
 import {FocusModeToggle} from './FocusMode';
-import {genereatedFileCache} from './GeneratedFile';
+import {generatedFileCache} from './GeneratedFile';
 import {PullButton} from './PullButton';
 import {SettingsGearButton} from './SettingsTooltip';
 import {ShelvedChangesMenu} from './ShelvedChanges';
@@ -46,6 +47,7 @@ export function TopBar() {
         <DownloadCommitsTooltipButton />
         <ShelvedChangesMenu />
         <BulkActionsMenu />
+        <CollapseAllStacksButton />
         <BookmarksManagerMenu />
         {Internal.FullRepoBranchButton && <Internal.FullRepoBranchButton />}
         <FetchingDataIndicator />
@@ -79,7 +81,7 @@ function RefreshButton() {
           tracker.track('ClickedRefresh');
           clearOptimisticState();
           maybeRemoveForgottenOperation();
-          genereatedFileCache.clear(); // allow generated files to be rechecked
+          generatedFileCache.clear(); // allow generated files to be rechecked
           serverAPI.postMessage({type: 'refresh'});
           clearTrackedCache();
         }}
