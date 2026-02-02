@@ -117,6 +117,15 @@ export enum ArchivedReasonType {
   STALE_FILE_CHANGED = 'STALE_FILE_CHANGED',
 }
 
+export type PullRequestReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+
+export type DraftPullRequestReviewThread = {
+  path: string;
+  line: number;
+  body: string;
+  side?: 'LEFT' | 'RIGHT';
+};
+
 export enum WarningCheckResult {
   PASS = 'PASS',
   FAIL = 'FAIL',
@@ -981,6 +990,13 @@ export type ClientToServerMessage =
   | {type: 'graphqlReply'; threadId: string; body: string}
   | {type: 'resolveThread'; threadId: string}
   | {type: 'unresolveThread'; threadId: string}
+  | {
+      type: 'submitPullRequestReview';
+      pullRequestId: string;
+      event: PullRequestReviewEvent;
+      body?: string;
+      threads?: DraftPullRequestReviewThread[];
+    }
   | {type: 'fetchLandInfo'; topOfStack: DiffId}
   | {type: 'fetchAndSetStables'; additionalStables: Array<string>}
   | {type: 'fetchStableLocationAutocompleteOptions'}
@@ -1142,6 +1158,10 @@ export type ServerToClientMessage =
   | {type: 'fetchedDiffComments'; diffId: DiffId; comments: Result<Array<DiffComment>>}
   | {type: 'graphqlReplyResult'; threadId: string; success?: boolean; error?: string}
   | {type: 'threadResolutionResult'; threadId: string; isResolved?: boolean; success?: boolean; error?: string}
+  | {
+      type: 'submittedPullRequestReview';
+      result: Result<{reviewId: string}>;
+    }
   | {type: 'fetchedLandInfo'; topOfStack: DiffId; landInfo: Result<LandInfo>}
   | {type: 'confirmedLand'; result: Result<undefined>}
   | {type: 'fetchedCommitCloudState'; state: Result<CommitCloudSyncState>}
