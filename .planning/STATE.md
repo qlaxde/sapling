@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 12 of 14 (Merge + CI Status)
-Plan: 04 of 04
-Status: Phase complete
-Last activity: 2026-02-02 - Completed 12-04-PLAN.md
+Phase: 13 of 14 (Sync/Rebase)
+Plan: 02 of 05
+Status: In progress
+Last activity: 2026-02-02 - Completed 13-02-PLAN.md
 
 Progress: [████████████] 86% (12 of 14 phases complete)
 
@@ -30,7 +30,7 @@ Progress: [████████████] 86% (12 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 16 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03, 12-04)
+- Plans completed: 18 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03, 12-04, 13-01, 13-02)
 - Phases: 9-14 (6 phases)
 - Phases 9-12 complete, Phase 13-14 remaining
 - Coverage: 23/23 requirements mapped
@@ -127,16 +127,29 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Optimistic UI state with mergeInProgressAtom to prevent double-merge
 - Toast notifications for merge success (5s) and errors (8s)
 
+**Phase 13 decisions (13-01):**
+- Use gh pr update-branch --rebase for sync (preserves linear history)
+- Public prNumber property enables SyncProgress component to match operations
+- CommandRunner.CodeReviewProvider for gh CLI execution
+- RunOperation trackEventName for analytics
+
+**Phase 13 decisions (13-02):**
+- Direct localStorage iteration for viewed file counting (matches reviewedFilesAtom pattern)
+- String prNumber parameter (consistent with DiffId type)
+- Separate pendingCommentCount and viewedFileCount (UI flexibility)
+- formatSyncWarningMessage utility for consistent messaging
+- SYN-05: Pending comments persist through rebase but may become invalid
+
 ### Pending Todos
 
-Phase 12 complete. Ready for Phase 13 (Sync/Rebase).
+Phase 13 in progress (plan 02 of 05 complete).
 
 ### Blockers/Concerns
 
-None - All merge + CI status functionality complete and integrated.
+None - Sync warning detection ready for UI integration in 13-03.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 12-04-PLAN.md (Phase 12 complete)
-Resume file: None - Ready to start Phase 13 (Sync/Rebase)
+Stopped at: Completed 13-02-PLAN.md
+Resume file: None - Ready for 13-03 (Sync Operation UI)
