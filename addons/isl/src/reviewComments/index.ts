@@ -17,3 +17,5 @@ export {
 export {CommentInput, type CommentInputProps} from './CommentInput';
 
 export {PendingCommentDisplay, type PendingCommentDisplayProps} from './PendingCommentDisplay';
+
+export {ReplyInput, type ReplyInputProps} from './ReplyInput';
