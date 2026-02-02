@@ -165,10 +165,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 11-01-PLAN.md — Add PR node ID to GraphQL query for mutation API
-- [ ] 11-02-PLAN.md — Server-side submitPullRequestReview handler
-- [ ] 11-03-PLAN.md — ReviewSubmissionModal component (summary text + action selection)
-- [ ] 11-04-PLAN.md — Wire Submit Review button into ComparisonView and review flow
+- [x] 11-01-PLAN.md — Add PR node ID to GraphQL query for mutation API
+- [x] 11-02-PLAN.md — Server-side submitPullRequestReview handler
+- [x] 11-03-PLAN.md — ReviewSubmissionModal component (summary text + action selection)
+- [x] 11-04-PLAN.md — Wire Submit Review button into ComparisonView and review flow
 
 #### Phase 12: Merge + CI Status
 **Goal**: User can see CI status and merge PR with strategy selection from review mode
@@ -182,10 +182,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Extend DiffSummary with mergeability and CI check details
-- [ ] 12-02-PLAN.md — CIStatusBadge component for detailed CI status display
-- [ ] 12-03-PLAN.md — MergePROperation and merge state logic
-- [ ] 12-04-PLAN.md — MergeControls UI integrated into review mode
+- [x] 12-01-PLAN.md — Extend DiffSummary with mergeability and CI check details
+- [x] 12-02-PLAN.md — CIStatusBadge component for detailed CI status display
+- [x] 12-03-PLAN.md — MergePROperation and merge state logic
+- [x] 12-04-PLAN.md — MergeControls UI integrated into review mode
 
 #### Phase 13: Sync/Rebase
 **Goal**: User can keep PR in sync with latest main and rebase stack without leaving review mode
@@ -197,28 +197,34 @@ Plans:
   3. User sees clear feedback during sync/rebase operation (progress, conflicts, completion)
   4. System warns user before sync if pending comments exist that may become invalid
   5. Viewed file status and draft comments handle rebases gracefully
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 13-01: TBD during planning
+- [ ] 13-01-PLAN.md — SyncPROperation class for gh pr update-branch
+- [ ] 13-02-PLAN.md — Sync warning detection (pending comments, viewed files)
+- [ ] 13-03-PLAN.md — SyncPRButton with warning modal in review mode
+- [ ] 13-04-PLAN.md — Stack rebase via existing RebaseAllDraftCommitsOperation
+- [ ] 13-05-PLAN.md — Sync progress feedback in review mode
 
 #### Phase 14: Stacked PR Navigation
 **Goal**: User can navigate between PRs in a stack without exiting review mode
 **Depends on**: Phase 9 (review mode foundation, independent of comments/merge)
 **Requirements**: STK-01, STK-02
 **Success Criteria** (what must be TRUE):
-  1. User can see stacked PR relationships visualized in review mode (A → B → C)
+  1. User can see stacked PR relationships visualized in review mode (A -> B -> C)
   2. User can navigate between PRs in a stack without exiting review mode
   3. Stack visualization highlights current PR and shows sync status
   4. Switching between stack PRs preserves review progress (viewed files, pending comments)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 14-01: TBD during planning
+- [ ] 14-01-PLAN.md — Stack context atom (currentPRStackContextAtom in PRStacksAtom.ts)
+- [ ] 14-02-PLAN.md — StackNavigationBar component with PR pill buttons
+- [ ] 14-03-PLAN.md — State preservation verification and human testing
 
 ## Progress
 
-**Execution Order:** Phases execute in numeric order: 9 → 10 → 11 → 12 → 13 → 14
+**Execution Order:** Phases execute in numeric order: 9 -> 10 -> 11 -> 12 -> 13 -> 14
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -232,7 +238,7 @@ Plans:
 | 8. Design Refinement | v1.1 | 1/1 | Complete | 2026-01-27 |
 | 9. Review Mode Foundation + File Tracking | v1.2 | 4/4 | Complete | 2026-02-02 |
 | 10. Inline Comments + Threading | v1.2 | 5/5 | Complete | 2026-02-02 |
-| 11. Review Submission | v1.2 | 0/4 | Planned | - |
-| 12. Merge + CI Status | v1.2 | 0/4 | Planned | - |
-| 13. Sync/Rebase | v1.2 | 0/TBD | Not started | - |
-| 14. Stacked PR Navigation | v1.2 | 0/TBD | Not started | - |
+| 11. Review Submission | v1.2 | 4/4 | Complete | 2026-02-02 |
+| 12. Merge + CI Status | v1.2 | 4/4 | Complete | 2026-02-02 |
+| 13. Sync/Rebase | v1.2 | 0/5 | Planned | - |
+| 14. Stacked PR Navigation | v1.2 | 0/3 | Planned | - |
