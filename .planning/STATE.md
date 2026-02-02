@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 12 of 14 (Merge + CI Status)
-Plan: 03 of 04
-Status: In progress
-Last activity: 2026-02-02 - Completed 12-03-PLAN.md
+Plan: 04 of 04
+Status: Phase complete
+Last activity: 2026-02-02 - Completed 12-04-PLAN.md
 
-Progress: [███████████░] 82% (11 of 14 phases complete, 12-01, 12-02, and 12-03 done)
+Progress: [████████████] 86% (12 of 14 phases complete)
 
 ## Performance Metrics
 
@@ -30,9 +30,9 @@ Progress: [███████████░] 82% (11 of 14 phases complete, 
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 15 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03)
+- Plans completed: 16 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03, 12-04)
 - Phases: 9-14 (6 phases)
-- Phases 9-11 complete, Phase 12 in progress (3/4 plans done)
+- Phases 9-12 complete, Phase 13-14 remaining
 - Coverage: 23/23 requirements mapped
 
 ## Accumulated Context
@@ -121,16 +121,22 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Non-interactive mode (--yes flag) since ISL can't handle prompts
 - Comprehensive blocking checks (CI, reviews, conflicts, branch protection, draft status)
 
+**Phase 12 decisions (12-04):**
+- Type guard `isGitHubDiffSummary(pr)` for safe union type narrowing (no `as any` casts)
+- Dropdown component uses options array format, not JSX children
+- Optimistic UI state with mergeInProgressAtom to prevent double-merge
+- Toast notifications for merge success (5s) and errors (8s)
+
 ### Pending Todos
 
-Continue Phase 12 with 12-04 (Merge Controls UI + Integration).
+Phase 12 complete. Ready for Phase 13 (Sync/Rebase).
 
 ### Blockers/Concerns
 
-None - MergePROperation and mergeability logic ready for UI integration.
+None - All merge + CI status functionality complete and integrated.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 12-03-PLAN.md
-Resume file: None - Continue with Phase 12-04 (Merge Controls UI)
+Stopped at: Completed 12-04-PLAN.md (Phase 12 complete)
+Resume file: None - Ready to start Phase 13 (Sync/Rebase)
