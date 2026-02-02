@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-02)
 
 **Core value:** The UI should feel polished and effortless — you focus on the code, not fighting the interface.
-**Current focus:** v1.2 PR Review View (Phase 11: Review Submission - COMPLETE)
+**Current focus:** v1.2 PR Review View (Phase 12: Merge + CI Status - In Progress)
 
 ## Current Position
 
 Phase: 12 of 14 (Merge + CI Status)
-Plan: 01 of 04
+Plan: 02 of 04
 Status: In progress
-Last activity: 2026-02-02 - Completed 12-01-PLAN.md
+Last activity: 2026-02-02 - Completed 12-02-PLAN.md
 
-Progress: [███████████░] 79% (11 of 14 phases complete, 12-01 done)
+Progress: [███████████░] 80% (11 of 14 phases complete, 12-01 and 12-02 done)
 
 ## Performance Metrics
 
@@ -30,9 +30,9 @@ Progress: [███████████░] 79% (11 of 14 phases complete, 
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 13 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01)
+- Plans completed: 14 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02)
 - Phases: 9-14 (6 phases)
-- Phases 9-11 complete, Phase 12 in progress (1/4 plans done)
+- Phases 9-11 complete, Phase 12 in progress (2/4 plans done)
 - Coverage: 23/23 requirements mapped
 
 ## Accumulated Context
@@ -110,16 +110,21 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Map legacy StatusContext state to CheckRun conclusion for unified format
 - Optional fields with undefined fallback for new PR data fields
 
+**Phase 12 decisions (12-02):**
+- Handle land-cancelled status in addition to core pass/fail/running/warning states
+- reviewMode/ directory for UI components, reviewMode.ts for state (separated concerns)
+- Expandable details on click rather than always visible (reduces clutter)
+
 ### Pending Todos
 
-Continue Phase 12 with 12-02 (Merge Button UI), 12-03 (CI Status Display), 12-04 (Integration).
+Continue Phase 12 with 12-03 (CI Status Display), 12-04 (Integration).
 
 ### Blockers/Concerns
 
-None - PR data layer extended with merge and CI fields, ready for UI components.
+None - CIStatusBadge component ready for integration in merge controls.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 12-01-PLAN.md
-Resume file: None - Continue with Phase 12-02 (Merge Button UI)
+Stopped at: Completed 12-02-PLAN.md
+Resume file: None - Continue with Phase 12-03 (CI Status Display)
