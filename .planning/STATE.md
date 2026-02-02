@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-02)
 
 **Core value:** The UI should feel polished and effortless — you focus on the code, not fighting the interface.
-**Current focus:** v1.2 PR Review View (Phase 9: Review Mode Foundation + File Tracking)
+**Current focus:** v1.2 PR Review View (Phase 10: Inline Comments + Threading)
 
 ## Current Position
 
-Phase: 9 of 14 (Review Mode Foundation + File Tracking)
-Plan: 03 of 04
-Status: In progress
-Last activity: 2026-02-02 — Completed 09-03-PLAN.md
+Phase: 9 of 14 (Review Mode Foundation + File Tracking) - COMPLETE
+Plan: 04 of 04
+Status: Phase complete
+Last activity: 2026-02-02 - Completed 09-04-PLAN.md
 
-Progress: [████████░░] 57% (8 of 14 phases complete)
+Progress: [████████░░] 64% (9 of 14 phases complete)
 
 ## Performance Metrics
 
@@ -22,7 +22,7 @@ Progress: [████████░░] 57% (8 of 14 phases complete)
 - Total plans completed: 11
 - Average duration: ~3.2 min/plan
 - Total execution time: ~35 min
-- Git range: feat(01-02) → style(05-01)
+- Git range: feat(01-02) -> style(05-01)
 
 **v1.1 Milestone:**
 - Total plans completed: 4
@@ -30,7 +30,7 @@ Progress: [████████░░] 57% (8 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 3 (09-01, 09-02, 09-03)
+- Plans completed: 4 (09-01, 09-02, 09-03, 09-04)
 - Phases: 9-14 (6 phases)
 - Coverage: 23/23 requirements mapped
 
@@ -61,17 +61,18 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - pr: prefix distinguishes from regular comparison keys
 - Navigation controls only shown in review mode with >1 file
 - Arrow-up/arrow-down icons for prev/next file navigation
+- useMemo for stable key generation in ComparisonViewFile
 
 ### Pending Todos
 
-None — continue with 09-04-PLAN.md (Progress Tracking UI)
+None - Phase 9 complete. Ready for Phase 10: Inline Comments + Threading.
 
 ### Blockers/Concerns
 
-None — research completed, architecture validated, requirements fully mapped.
+None - research completed, architecture validated, requirements fully mapped.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 09-03-PLAN.md
+Stopped at: Completed 09-04-PLAN.md (Phase 9 complete)
 Resume file: None
