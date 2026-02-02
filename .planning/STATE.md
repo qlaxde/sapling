@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-02)
 
 **Core value:** The UI should feel polished and effortless — you focus on the code, not fighting the interface.
-**Current focus:** v1.2 PR Review View
+**Current focus:** v1.2 PR Review View (Phase 9: Review Mode Foundation + File Tracking)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-02 — Milestone v1.2 started
+Phase: 9 of 14 (Review Mode Foundation + File Tracking)
+Plan: 02 of 04
+Status: In progress
+Last activity: 2026-02-02 — Completed 09-02-PLAN.md
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [████████░░] 57% (8 of 14 phases complete)
 
 ## Performance Metrics
 
@@ -29,6 +29,11 @@ Progress: [░░░░░░░░░░] 0%
 - Phases: 6-8
 - Shipped: 2026-02-02
 
+**v1.2 Milestone:**
+- Plans completed: 1 (09-02)
+- Phases: 9-14 (6 phases)
+- Coverage: 23/23 requirements mapped
+
 ## Accumulated Context
 
 ### Decisions
@@ -42,16 +47,27 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - TopBar reduced opacity (0.7 default, 1.0 on hover)
 - +X/-Y line count format for file changes
 
+**v1.2 architectural decisions:**
+- Extend ComparisonView, don't build parallel review mode
+- Reuse existing `reviewedFilesAtom` for file tracking
+- Use Jotai atomFamily for per-PR state management
+- Leverage gh CLI via serverAPI for GitHub operations
+
+**Phase 9 decisions:**
+- PR file key format: `pr:{prNumber}:{headHash}:{filePath}`
+- headHash in key auto-invalidates viewed status on PR updates
+- pr: prefix distinguishes from regular comparison keys
+
 ### Pending Todos
 
-None — v1.2 roadmap being created.
+None — continue with 09-03-PLAN.md
 
 ### Blockers/Concerns
 
-None.
+None — research completed, architecture validated, requirements fully mapped.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Starting v1.2 milestone (PR Review View)
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
