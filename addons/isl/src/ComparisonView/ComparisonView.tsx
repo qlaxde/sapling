@@ -38,7 +38,7 @@ import {reviewModeAtom} from '../reviewMode';
 import {themeState} from '../theme';
 import {GeneratedStatus} from '../types';
 import {SplitDiffView} from './SplitDiffView';
-import {currentComparisonMode, reviewedFilesAtom, reviewedFileKey} from './atoms';
+import {currentComparisonMode, reviewedFilesAtom, reviewedFileKey, reviewedFileKeyForPR} from './atoms';
 import {parsePatchAndFilter, sortFilesByType} from './utils';
 
 import './ComparisonView.css';
@@ -526,7 +526,16 @@ function ComparisonViewFile({
   setRef?: (path: string, element: HTMLDivElement | null) => void;
 }) {
   const path = diff.newFileName ?? diff.oldFileName ?? '';
-  const reviewKey = reviewedFileKey(comparison, path);
+  const reviewMode = useAtomValue(reviewModeAtom);
+
+  // Use PR-aware key when in review mode to enable reset on PR updates
+  const reviewKey = useMemo(() => {
+    if (reviewMode.active && reviewMode.prNumber != null && reviewMode.prHeadHash != null) {
+      return reviewedFileKeyForPR(Number(reviewMode.prNumber), reviewMode.prHeadHash, path);
+    }
+    return reviewedFileKey(comparison, path);
+  }, [reviewMode.active, reviewMode.prNumber, reviewMode.prHeadHash, path, comparison]);
+
   const [reviewed, setReviewed] = useAtom(reviewedFilesAtom(reviewKey));
 
   // Reviewed files are always collapsed. To expand, uncheck the review first.
