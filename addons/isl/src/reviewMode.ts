@@ -16,7 +16,7 @@ import {writeAtom} from './jotaiUtils';
  */
 export type ReviewModeState = {
   active: boolean;
-  prNumber: number | null;
+  prNumber: string | null; // DiffId (PR number as string)
   prHeadHash: string | null; // Track PR version for reset detection
 };
 
@@ -33,7 +33,7 @@ export const reviewModeAtom = atom<ReviewModeState>({
  * Enter review mode for a specific PR.
  * Opens the comparison view for the PR's head commit.
  */
-export function enterReviewMode(prNumber: number, headHash: string): void {
+export function enterReviewMode(prNumber: string, headHash: string): void {
   writeAtom(reviewModeAtom, {
     active: true,
     prNumber,
