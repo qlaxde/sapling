@@ -90,7 +90,6 @@ export function ReviewSubmissionModal({pendingCommentCount, returnResultAndDismi
         <Button
           onClick={() => handleSubmit('REQUEST_CHANGES')}
           disabled={isSubmitting}
-          kind="destructive"
           data-testid="submit-request-changes-button">
           <Icon icon="diff" slot="start" />
           <T>Request Changes</T>
