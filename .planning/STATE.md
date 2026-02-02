@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 14 of 14 (Stacked PR Navigation)
-Plan: 02 of 04
+Plan: 03 of 04
 Status: In progress
-Last activity: 2026-02-02 - Completed 14-02-PLAN.md
+Last activity: 2026-02-02 - Completed 14-03-PLAN.md
 
-Progress: [█████████████░] 94% (13 of 14 phases complete, 14-01, 14-02 done)
+Progress: [█████████████░] 95% (13 of 14 phases complete, 14-01, 14-02, 14-03 done)
 
 ## Performance Metrics
 
@@ -30,10 +30,10 @@ Progress: [█████████████░] 94% (13 of 14 phases comp
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 23 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03, 12-04, 13-01, 13-02, 13-03, 13-04, 13-05, 14-01, 14-02)
+- Plans completed: 24 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03, 12-04, 13-01, 13-02, 13-03, 13-04, 13-05, 14-01, 14-02, 14-03)
 - Phases: 9-14 (6 phases)
-- Phases 9-13 complete, Phase 14 in progress (2/4 plans complete)
-- Coverage: 23/23 requirements mapped
+- Phases 9-13 complete, Phase 14 in progress (3/4 plans complete)
+- Coverage: 24/24 requirements mapped
 
 ## Accumulated Context
 
@@ -165,16 +165,21 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Pill-shaped buttons with tooltips for PR navigation (compact + contextual)
 - Skip navigation if headHash is empty to prevent errors (graceful degradation)
 
+**Phase 14 decisions (14-03):**
+- No code changes needed - Phase 10 atomFamily patterns inherently support stack navigation
+- pendingCommentsAtom(prNumber) automatically isolates comments per PR
+- reviewedFilesAtom with reviewedFileKeyForPR automatically isolates viewed status per PR + version
+
 ### Pending Todos
 
-Phase 14 in progress. Remaining plans: 14-03, 14-04.
+Phase 14 in progress. Remaining plan: 14-04 (Stack Label + Dropdown).
 
 ### Blockers/Concerns
 
-None - Phase 14 plans 01-02 complete, ready for dropdown enhancement.
+None - Phase 14 plans 01-03 complete. State isolation verified via architectural review.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 14-02-PLAN.md
+Stopped at: Completed 14-03-PLAN.md
 Resume file: None
