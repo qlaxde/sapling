@@ -26,3 +26,9 @@ export {
   ThreadResolutionButton,
   type ThreadResolutionButtonProps,
 } from './ThreadResolution';
+
+export {
+  getSyncWarnings,
+  formatSyncWarningMessage,
+  type SyncWarnings,
+} from './syncWarning';
