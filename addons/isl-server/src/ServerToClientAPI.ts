@@ -895,6 +895,46 @@ export default class ServerToClientAPI {
           });
         break;
       }
+      case 'resolveThread': {
+        repo.codeReviewProvider
+          ?.resolveThread?.(data.threadId)
+          ?.then(() => {
+            this.postMessage({
+              type: 'threadResolutionResult',
+              threadId: data.threadId,
+              isResolved: true,
+              success: true,
+            });
+          })
+          .catch((error: Error) => {
+            this.postMessage({
+              type: 'threadResolutionResult',
+              threadId: data.threadId,
+              error: error.message,
+            });
+          });
+        break;
+      }
+      case 'unresolveThread': {
+        repo.codeReviewProvider
+          ?.unresolveThread?.(data.threadId)
+          ?.then(() => {
+            this.postMessage({
+              type: 'threadResolutionResult',
+              threadId: data.threadId,
+              isResolved: false,
+              success: true,
+            });
+          })
+          .catch((error: Error) => {
+            this.postMessage({
+              type: 'threadResolutionResult',
+              threadId: data.threadId,
+              error: error.message,
+            });
+          });
+        break;
+      }
       case 'renderMarkup': {
         repo.codeReviewProvider
           ?.renderMarkup?.(data.markup)

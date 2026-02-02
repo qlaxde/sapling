@@ -329,6 +329,52 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
   }
 
   /**
+   * Resolve a comment thread.
+   * Uses GitHub's resolveReviewThread GraphQL mutation.
+   */
+  public async resolveThread(threadId: string): Promise<void> {
+    const mutation = `
+      mutation ResolveThread($input: ResolveReviewThreadInput!) {
+        resolveReviewThread(input: $input) {
+          thread { id isResolved }
+        }
+      }
+    `;
+
+    const response = await this.query<
+      {resolveReviewThread?: {thread?: {id: string; isResolved: boolean} | null} | null},
+      {input: {threadId: string}}
+    >(mutation, {input: {threadId}});
+
+    if (response?.resolveReviewThread?.thread?.isResolved !== true) {
+      throw new Error('Failed to resolve thread');
+    }
+  }
+
+  /**
+   * Unresolve a previously resolved comment thread.
+   * Uses GitHub's unresolveReviewThread GraphQL mutation.
+   */
+  public async unresolveThread(threadId: string): Promise<void> {
+    const mutation = `
+      mutation UnresolveThread($input: UnresolveReviewThreadInput!) {
+        unresolveReviewThread(input: $input) {
+          thread { id isResolved }
+        }
+      }
+    `;
+
+    const response = await this.query<
+      {unresolveReviewThread?: {thread?: {id: string; isResolved: boolean} | null} | null},
+      {input: {threadId: string}}
+    >(mutation, {input: {threadId}});
+
+    if (response?.unresolveReviewThread?.thread?.isResolved !== false) {
+      throw new Error('Failed to unresolve thread');
+    }
+  }
+
+  /**
    * Reply to an existing comment thread.
    * Replies are submitted immediately (not batched) because they're on existing threads.
    */

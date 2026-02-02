@@ -18,4 +18,11 @@ export {CommentInput, type CommentInputProps} from './CommentInput';
 
 export {PendingCommentDisplay, type PendingCommentDisplayProps} from './PendingCommentDisplay';
 
+export {PendingCommentsBadge, type PendingCommentsBadgeProps} from './PendingCommentsBadge';
+
 export {ReplyInput, type ReplyInputProps} from './ReplyInput';
+
+export {
+  ThreadResolutionButton,
+  type ThreadResolutionButtonProps,
+} from './ThreadResolution';

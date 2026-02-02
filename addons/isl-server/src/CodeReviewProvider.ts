@@ -78,6 +78,12 @@ export interface CodeReviewProvider {
   /** Reply to an existing comment thread (immediate, not batched) */
   replyToThread?(threadId: string, body: string): Promise<void>;
 
+  /** Resolve a comment thread */
+  resolveThread?(threadId: string): Promise<void>;
+
+  /** Unresolve a previously resolved comment thread */
+  unresolveThread?(threadId: string): Promise<void>;
+
   renderMarkup?: (markup: string) => Promise<string>;
 
   fetchLandInfo?(topOfStack: DiffId): Promise<LandInfo>;
