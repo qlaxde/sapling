@@ -14,7 +14,7 @@ import {Icon} from 'isl-components/Icon';
 import {Subtle} from 'isl-components/Subtle';
 import {Tooltip} from 'isl-components/Tooltip';
 import {useAtom, useAtomValue} from 'jotai';
-import {useEffect} from 'react';
+import {useEffect, useState} from 'react';
 import {ComparisonType} from 'shared/Comparison';
 import {group} from 'shared/utils';
 import {colors, font, radius, spacing} from '../../../components/theme/tokens.stylex';
@@ -25,6 +25,7 @@ import {Link} from '../Link';
 import {T, t} from '../i18n';
 import platform from '../platform';
 import {RelativeDate} from '../relativeDate';
+import {ReplyInput} from '../reviewComments';
 import {layout} from '../stylexUtils';
 import {themeState} from '../theme';
 import {diffCommentData} from './codeReviewAtoms';
@@ -75,9 +76,26 @@ const styles = stylex.create({
   diffView: {
     marginBlock: spacing.pad,
   },
+  replyButton: {
+    cursor: 'pointer',
+    opacity: 0.7,
+    ':hover': {
+      opacity: 1,
+    },
+  },
 });
 
-function Comment({comment, isTopLevel}: {comment: DiffComment; isTopLevel?: boolean}) {
+function Comment({
+  comment,
+  isTopLevel,
+  onRefresh,
+}: {
+  comment: DiffComment;
+  isTopLevel?: boolean;
+  onRefresh?: () => void;
+}) {
+  const [showReply, setShowReply] = useState(false);
+
   return (
     <Row xstyle={styles.comment}>
       <Column {...stylex.props(styles.left)}>
@@ -115,9 +133,31 @@ function Comment({comment, isTopLevel}: {comment: DiffComment; isTopLevel?: bool
               <T>Unresolved</T>
             </span>
           ) : null}
+          {comment.threadId && (
+            <Tooltip title={t('Reply to thread')}>
+              <span
+                {...stylex.props(styles.replyButton)}
+                onClick={() => setShowReply(true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => e.key === 'Enter' && setShowReply(true)}>
+                <Icon icon="comment" />
+              </span>
+            </Tooltip>
+          )}
         </Subtle>
+        {showReply && comment.threadId && (
+          <ReplyInput
+            threadId={comment.threadId}
+            onCancel={() => setShowReply(false)}
+            onSuccess={() => {
+              setShowReply(false);
+              onRefresh?.();
+            }}
+          />
+        )}
         {comment.replies.map((reply, i) => (
-          <Comment key={i} comment={reply} />
+          <Comment key={i} comment={reply} onRefresh={onRefresh} />
         ))}
       </Column>
     </Row>
@@ -216,7 +256,7 @@ export default function DiffCommentsDetails({diffId}: {diffId: DiffId}) {
   return (
     <div {...stylex.props(layout.flexCol, styles.list)}>
       {comments.data.map((comment, i) => (
-        <Comment key={i} comment={comment} isTopLevel />
+        <Comment key={i} comment={comment} isTopLevel onRefresh={refresh} />
       ))}
     </div>
   );
