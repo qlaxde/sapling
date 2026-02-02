@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 9 of 14 (Review Mode Foundation + File Tracking)
-Plan: 02 of 04
+Plan: 01-02 of 04
 Status: In progress
-Last activity: 2026-02-02 — Completed 09-02-PLAN.md
+Last activity: 2026-02-02 — Completed 09-01-PLAN.md, 09-02-PLAN.md
 
 Progress: [████████░░] 57% (8 of 14 phases complete)
 
@@ -30,7 +30,7 @@ Progress: [████████░░] 57% (8 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 1 (09-02)
+- Plans completed: 2 (09-01, 09-02)
 - Phases: 9-14 (6 phases)
 - Coverage: 23/23 requirements mapped
 
@@ -54,13 +54,15 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Leverage gh CLI via serverAPI for GitHub operations
 
 **Phase 9 decisions:**
+- prNumber stored as string (DiffId type) to match GitHub PR number type
+- Review mode uses showComparison with ComparisonType.Committed for PR's head hash
 - PR file key format: `pr:{prNumber}:{headHash}:{filePath}`
 - headHash in key auto-invalidates viewed status on PR updates
 - pr: prefix distinguishes from regular comparison keys
 
 ### Pending Todos
 
-None — continue with 09-03-PLAN.md
+None — continue with 09-03-PLAN.md (Progress Tracking UI)
 
 ### Blockers/Concerns
 
@@ -69,5 +71,5 @@ None — research completed, architecture validated, requirements fully mapped.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 09-02-PLAN.md
+Stopped at: Completed 09-01-PLAN.md, 09-02-PLAN.md
 Resume file: None
