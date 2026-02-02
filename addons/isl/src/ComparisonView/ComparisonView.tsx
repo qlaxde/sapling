@@ -41,6 +41,7 @@ import {
 } from '../reviewComments';
 import {latestHeadCommit} from '../serverAPIState';
 import {reviewModeAtom} from '../reviewMode';
+import {MergeControls} from '../reviewMode/MergeControls';
 import {useSubmitReview} from '../reviewSubmission';
 import {allDiffSummaries} from '../codeReview/CodeReviewInfo';
 import {themeState} from '../theme';
@@ -265,6 +266,12 @@ export default function ComparisonView({
         onNextFile={handleNextFile}
         showNavigation={reviewMode.active && filePaths.length > 1}
       />
+      {/* Merge controls section - only shown in review mode with a PR */}
+      {reviewMode.active && reviewMode.prNumber && (
+        <div className="comparison-view-merge-section">
+          <MergeControls prNumber={reviewMode.prNumber} />
+        </div>
+      )}
       {/* Review mode toolbar with pending comments badge and PR-level comment button */}
       {reviewMode.active && reviewMode.prNumber && (
         <div className="review-mode-header">
