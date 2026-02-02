@@ -325,8 +325,12 @@ export type StableInfo = {
 };
 
 export type SlocInfo = {
-  /** Significant lines of code for commit */
+  /** Significant lines of code for commit (insertions + deletions) */
   sloc: number | undefined;
+  /** Number of inserted lines */
+  insertions?: number;
+  /** Number of deleted lines */
+  deletions?: number;
 };
 
 export type CommitInfo = {
@@ -811,6 +815,10 @@ export type PlatformSpecificServerToClientMessages =
   | {
       type: 'platform/gotAIReviewComments';
       comments: Result<CodeReviewIssue[]>;
+    }
+  | {
+      type: 'platform/openFileError';
+      error: string;
     };
 
 export type CodeReviewProviderSpecificClientToServerMessages =
@@ -930,6 +938,7 @@ export type LocalStorageName =
   | 'isl.edited-commit-messages:'
   | 'isl.first-pass-comments:'
   | 'isl.reviewed-files:'
+  | 'isl.pending-comments:'
   | 'isl.dismissed-notification-ids';
 
 export type ClientToServerMessage =
