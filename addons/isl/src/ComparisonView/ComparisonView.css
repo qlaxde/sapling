@@ -277,3 +277,72 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Stack navigation bar for multi-PR stacks */
+.stack-navigation-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--pad);
+  padding: var(--halfpad) var(--pad);
+  background: var(--graphite-bg-subtle);
+  border-bottom: 1px solid var(--graphite-border);
+  margin-bottom: var(--halfpad);
+}
+
+.stack-navigation-bar .stack-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--graphite-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stack-navigation-bar .stack-pr-pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.stack-navigation-bar .stack-pr-pill {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--graphite-bg);
+  border: 1px solid var(--graphite-border);
+  color: var(--graphite-text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stack-navigation-bar .stack-pr-pill:hover:not(:disabled) {
+  background: var(--graphite-bg-hover);
+  border-color: var(--button-primary-background);
+}
+
+.stack-navigation-bar .stack-pr-pill:disabled {
+  cursor: default;
+}
+
+.stack-navigation-bar .stack-pr-current {
+  background: var(--button-primary-background);
+  border-color: var(--button-primary-background);
+  color: var(--button-primary-foreground);
+}
+
+.stack-navigation-bar .stack-pr-merged {
+  opacity: 0.6;
+}
+
+.stack-navigation-bar .stack-pr-merged .codicon {
+  font-size: 10px;
+}
+
+.stack-navigation-bar .stack-position {
+  font-size: 11px;
+  color: var(--graphite-text-secondary);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
