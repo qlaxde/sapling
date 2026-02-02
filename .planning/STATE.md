@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 13 of 14 (Sync/Rebase)
-Plan: 02 of 05
+Plan: 03 of 05
 Status: In progress
-Last activity: 2026-02-02 - Completed 13-02-PLAN.md
+Last activity: 2026-02-02 - Completed 13-04-PLAN.md
 
 Progress: [████████████] 86% (12 of 14 phases complete)
 
@@ -30,7 +30,7 @@ Progress: [████████████] 86% (12 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 18 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03, 12-04, 13-01, 13-02)
+- Plans completed: 20 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03, 12-04, 13-01, 13-02, 13-03, 13-04)
 - Phases: 9-14 (6 phases)
 - Phases 9-12 complete, Phase 13-14 remaining
 - Coverage: 23/23 requirements mapped
@@ -140,16 +140,27 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - formatSyncWarningMessage utility for consistent messaging
 - SYN-05: Pending comments persist through rebase but may become invalid
 
+**Phase 13 decisions (13-03):**
+- SyncPRButton conditionally shows warning modal based on getSyncWarnings result
+- Button disabled while any operation running (uses isOperationRunningAtom)
+- Modal clarifies that comments persist but may be invalid (SYN-05)
+- Immediate sync when no warnings, modal confirmation when warnings exist
+
+**Phase 13 decisions (13-04):**
+- Rebase button shown when suggested rebase is available (natural placement)
+- Uses RebaseAllDraftCommitsOperation with draft() revset for all local commits
+- Icon button with git-merge icon for visual consistency
+
 ### Pending Todos
 
-Phase 13 in progress (plan 02 of 05 complete).
+Phase 13 in progress (plan 04 of 05 complete - 13-03 and 13-04 done).
 
 ### Blockers/Concerns
 
-None - Sync warning detection ready for UI integration in 13-03.
+None - Ready for 13-05 (final Phase 13 integration).
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 13-02-PLAN.md
-Resume file: None - Ready for 13-03 (Sync Operation UI)
+Stopped at: Completed 13-03-PLAN.md
+Resume file: None - Ready for 13-05 (final Phase 13 integration)
