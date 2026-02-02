@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 10 of 14 (Inline Comments + Threading)
-Plan: 04 of 05
-Status: In progress
-Last activity: 2026-02-02 - Completed 10-04-PLAN.md
+Phase: 10 of 14 (Inline Comments + Threading) - COMPLETE
+Plan: 05 of 05
+Status: Phase complete
+Last activity: 2026-02-02 - Completed 10-05-PLAN.md
 
-Progress: [████████░░] 64% (9 of 14 phases complete)
+Progress: [█████████░] 71% (10 of 14 phases complete)
 
 ## Performance Metrics
 
@@ -30,8 +30,9 @@ Progress: [████████░░] 64% (9 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 8 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04)
+- Plans completed: 9 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05)
 - Phases: 9-14 (6 phases)
+- Phase 10 complete
 - Coverage: 23/23 requirements mapped
 
 ## Accumulated Context
@@ -84,16 +85,21 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Auto-collapse 500ms after resolution for smooth transition
 - Grey border for resolved threads (colors.grey token)
 
+**Phase 10 decisions (10-05):**
+- Pending comments displayed at file level (simpler than inline in diff rows)
+- Review mode toolbar shows badge, PR comment button, and info text
+- onFileCommentClick callback in Context for file-level comments
+
 ### Pending Todos
 
-None - 10-04 complete. Continue with 10-05-PLAN.md (comment filtering).
+None - Phase 10 complete. Continue with Phase 11 (Review Submission).
 
 ### Blockers/Concerns
 
-None - thread resolution ready for use.
+None - all comment creation and display ready for Phase 11.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 10-04-PLAN.md
-Resume file: None
+Stopped at: Completed 10-05-PLAN.md (Phase 10 complete)
+Resume file: None - Continue with Phase 11
