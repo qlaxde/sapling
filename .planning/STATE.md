@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 11 of 14 (Review Submission)
-Plan: 02 of 04
+Plan: 01 of 04
 Status: In progress
-Last activity: 2026-02-02 - Completed 11-02-PLAN.md
+Last activity: 2026-02-02 - Completed 11-01-PLAN.md
 
 Progress: [█████████░] 71% (10 of 14 phases complete)
 
@@ -30,7 +30,7 @@ Progress: [█████████░] 71% (10 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 10 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-02)
+- Plans completed: 10 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01)
 - Phases: 9-14 (6 phases)
 - Phase 10 complete, Phase 11 in progress
 - Coverage: 23/23 requirements mapped
@@ -90,22 +90,20 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Review mode toolbar shows badge, PR comment button, and info text
 - onFileCommentClick callback in Context for file-level comments
 
-**Phase 11 decisions (11-02):**
-- Use GitHub's addPullRequestReview mutation for atomic create+submit operation
-- Support optional review body and draft threads in single request
-- Return review ID on success for potential future tracking
-- Message handler pattern in githubCodeReviewProvider for routing
+**Phase 11 decisions (11-01):**
+- nodeId positioned immediately after number field for logical grouping
+- Inline documentation that nodeId is required for mutation APIs
 
 ### Pending Todos
 
-None - Phase 11-02 complete. Continue with Phase 11-03 (UI integration).
+None - Phase 11-01 complete. Continue with Phase 11-02.
 
 ### Blockers/Concerns
 
-None - server infrastructure ready for UI integration.
+None - node IDs ready for review submission mutation.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 11-02-PLAN.md
-Resume file: None - Continue with Phase 11-03
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None - Continue with Phase 11-02
