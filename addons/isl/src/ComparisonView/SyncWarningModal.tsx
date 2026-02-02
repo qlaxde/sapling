@@ -8,7 +8,7 @@
 import type {SyncWarnings} from '../reviewComments';
 
 import {Button} from 'isl-components/Button';
-import {Modal} from 'isl-components/Modal';
+import {Modal} from '../Modal';
 import {T} from '../i18n';
 
 import './ComparisonView.css';
@@ -55,7 +55,7 @@ export function SyncWarningModal({warnings, onConfirm, onCancel}: Props) {
           <Button onClick={onCancel}>
             <T>Cancel</T>
           </Button>
-          <Button appearance="primary" onClick={onConfirm}>
+          <Button primary onClick={onConfirm}>
             <T>Sync Anyway</T>
           </Button>
         </div>
