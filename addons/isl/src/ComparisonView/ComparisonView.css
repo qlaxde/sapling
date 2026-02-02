@@ -239,3 +239,41 @@
   justify-content: flex-end;
   gap: var(--halfpad);
 }
+
+/* Sync Progress */
+.sync-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.sync-progress-running {
+  background-color: var(--button-secondary-hover-background);
+  color: var(--foreground);
+}
+
+.sync-progress-success {
+  background-color: rgba(var(--signal-success-rgb), 0.15);
+  color: var(--signal-success);
+}
+
+.sync-progress-error {
+  background-color: rgba(var(--signal-error-rgb), 0.15);
+  color: var(--signal-error);
+}
+
+.sync-progress-text {
+  flex: 1;
+}
+
+.sync-progress .codicon-loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
