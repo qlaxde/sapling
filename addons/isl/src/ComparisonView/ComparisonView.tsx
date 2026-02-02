@@ -34,6 +34,7 @@ import {T, t} from '../i18n';
 import {atomFamilyWeak, atomLoadableWithRefresh, localStorageBackedAtom} from '../jotaiUtils';
 import platform from '../platform';
 import {latestHeadCommit} from '../serverAPIState';
+import {reviewModeAtom} from '../reviewMode';
 import {themeState} from '../theme';
 import {GeneratedStatus} from '../types';
 import {SplitDiffView} from './SplitDiffView';
@@ -96,6 +97,17 @@ export default function ComparisonView({
     data,
   });
 
+  // File navigation state for review mode
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const reviewMode = useAtomValue(reviewModeAtom);
+
+  // Get list of file paths for navigation
+  const filePaths = useMemo(
+    () =>
+      data?.value?.map(file => file.newFileName ?? file.oldFileName ?? '').filter(Boolean) ?? [],
+    [data?.value],
+  );
+
   // Refs for scrolling to specific files
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const setFileRef = useCallback((path: string, element: HTMLDivElement | null) => {
@@ -105,6 +117,38 @@ export default function ComparisonView({
       fileRefs.current.delete(path);
     }
   }, []);
+
+  const handleNextFile = useCallback(() => {
+    if (currentFileIndex < filePaths.length - 1) {
+      const nextIndex = currentFileIndex + 1;
+      setCurrentFileIndex(nextIndex);
+      const path = filePaths[nextIndex];
+      const element = fileRefs.current.get(path);
+      if (element) {
+        element.scrollIntoView({behavior: 'smooth', block: 'start'});
+        // Expand if collapsed
+        if (collapsedFiles.get(path)) {
+          setCollapsedFile(path, false);
+        }
+      }
+    }
+  }, [currentFileIndex, filePaths, collapsedFiles, setCollapsedFile]);
+
+  const handlePrevFile = useCallback(() => {
+    if (currentFileIndex > 0) {
+      const prevIndex = currentFileIndex - 1;
+      setCurrentFileIndex(prevIndex);
+      const path = filePaths[prevIndex];
+      const element = fileRefs.current.get(path);
+      if (element) {
+        element.scrollIntoView({behavior: 'smooth', block: 'start'});
+        // Expand if collapsed
+        if (collapsedFiles.get(path)) {
+          setCollapsedFile(path, false);
+        }
+      }
+    }
+  }, [currentFileIndex, filePaths, collapsedFiles, setCollapsedFile]);
 
   // Scroll to file when scrollToFile is set and data is loaded
   useEffect(() => {
@@ -204,6 +248,11 @@ export default function ComparisonView({
         collapsedFiles={collapsedFiles}
         setCollapsedFile={setCollapsedFile}
         dismiss={dismiss}
+        currentFileIndex={currentFileIndex}
+        totalFiles={filePaths.length}
+        onPrevFile={handlePrevFile}
+        onNextFile={handleNextFile}
+        showNavigation={reviewMode.active && filePaths.length > 1}
       />
       <div className="comparison-view-details">{content}</div>
     </div>
@@ -220,11 +269,21 @@ function ComparisonViewHeader({
   collapsedFiles,
   setCollapsedFile,
   dismiss,
+  currentFileIndex,
+  totalFiles,
+  onPrevFile,
+  onNextFile,
+  showNavigation,
 }: {
   comparison: Comparison;
   collapsedFiles: Map<string, boolean>;
   setCollapsedFile: (path: string, collapsed: boolean) => unknown;
   dismiss?: () => void;
+  currentFileIndex?: number;
+  totalFiles?: number;
+  onPrevFile?: () => void;
+  onNextFile?: () => void;
+  showNavigation?: boolean;
 }) {
   const setComparisonMode = useSetAtom(currentComparisonMode);
   const [compared, reloadComparison] = useAtom(currentComparisonData(comparison));
@@ -283,6 +342,27 @@ function ComparisonViewHeader({
               <Icon icon="refresh" data-testid="comparison-refresh-button" />
             </Button>
           </Tooltip>
+          {showNavigation && totalFiles != null && totalFiles > 0 && (
+            <span className="comparison-view-file-navigation">
+              <Button
+                icon
+                onClick={onPrevFile}
+                disabled={currentFileIndex === 0}
+                data-testid="prev-file-button">
+                <Icon icon="arrow-up" />
+              </Button>
+              <span className="file-nav-indicator">
+                {(currentFileIndex ?? 0) + 1} / {totalFiles}
+              </span>
+              <Button
+                icon
+                onClick={onNextFile}
+                disabled={currentFileIndex === (totalFiles ?? 1) - 1}
+                data-testid="next-file-button">
+                <Icon icon="arrow-down" />
+              </Button>
+            </span>
+          )}
           <Button
             onClick={() => {
               for (const file of data?.value ?? []) {
