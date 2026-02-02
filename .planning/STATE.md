@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-02)
 
 **Core value:** The UI should feel polished and effortless — you focus on the code, not fighting the interface.
-**Current focus:** v1.2 PR Review View (Phase 10: Inline Comments + Threading)
+**Current focus:** v1.2 PR Review View (Phase 11: Review Submission - COMPLETE)
 
 ## Current Position
 
-Phase: 11 of 14 (Review Submission)
+Phase: 12 of 14 (Merge + CI Status)
 Plan: 01 of 04
 Status: In progress
-Last activity: 2026-02-02 - Completed 11-01-PLAN.md
+Last activity: 2026-02-02 - Completed 12-01-PLAN.md
 
-Progress: [█████████░] 71% (10 of 14 phases complete)
+Progress: [███████████░] 79% (11 of 14 phases complete, 12-01 done)
 
 ## Performance Metrics
 
@@ -30,9 +30,9 @@ Progress: [█████████░] 71% (10 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 10 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01)
+- Plans completed: 13 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01)
 - Phases: 9-14 (6 phases)
-- Phase 10 complete, Phase 11 in progress
+- Phases 9-11 complete, Phase 12 in progress (1/4 plans done)
 - Coverage: 23/23 requirements mapped
 
 ## Accumulated Context
@@ -94,16 +94,32 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - nodeId positioned immediately after number field for logical grouping
 - Inline documentation that nodeId is required for mutation APIs
 
+**Phase 11 decisions (11-03):**
+- Button component only supports 'primary' and 'icon' kinds, no 'destructive' option
+- TextArea uses e.currentTarget.value instead of e.target.value for TypeScript compatibility
+
+**Phase 11 decisions (11-04):**
+- useSubmitReview in .tsx file (contains inline JSX for modal)
+- Import from module (reviewSubmission) not direct file path
+- nodeId from allDiffSummaries using reviewMode.prNumber lookup
+- Pending badge with inverted button colors for high contrast
+
+**Phase 12 decisions (12-01):**
+- Use any type for extractCIChecks parameter due to complex generated GraphQL types
+- Extract both CheckRun (GitHub Checks API) and StatusContext (legacy status API)
+- Map legacy StatusContext state to CheckRun conclusion for unified format
+- Optional fields with undefined fallback for new PR data fields
+
 ### Pending Todos
 
-None - Phase 11-01 complete. Continue with Phase 11-02.
+Continue Phase 12 with 12-02 (Merge Button UI), 12-03 (CI Status Display), 12-04 (Integration).
 
 ### Blockers/Concerns
 
-None - node IDs ready for review submission mutation.
+None - PR data layer extended with merge and CI fields, ready for UI components.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 11-01-PLAN.md
-Resume file: None - Continue with Phase 11-02
+Stopped at: Completed 12-01-PLAN.md
+Resume file: None - Continue with Phase 12-02 (Merge Button UI)
