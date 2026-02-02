@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 10 of 14 (Inline Comments + Threading)
-Plan: 01 of 05
+Plan: 02 of 05
 Status: In progress
-Last activity: 2026-02-02 - Completed 10-01-PLAN.md
+Last activity: 2026-02-02 - Completed 10-02-PLAN.md
 
 Progress: [████████░░] 64% (9 of 14 phases complete)
 
@@ -30,7 +30,7 @@ Progress: [████████░░] 64% (9 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 5 (09-01, 09-02, 09-03, 09-04, 10-01)
+- Plans completed: 6 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02)
 - Phases: 9-14 (6 phases)
 - Coverage: 23/23 requirements mapped
 
@@ -68,16 +68,21 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Single-line comments only (no startLine/startSide) per research recommendation
 - 7-day expiry for pending comments localStorage persistence
 
+**Phase 10 decisions (10-02):**
+- Comment click takes priority over file open when onCommentClick is provided
+- Keyboard shortcuts: Cmd/Ctrl+Enter to submit, Escape to cancel
+- Plus icon appears on hover for commentable lines (visual affordance)
+
 ### Pending Todos
 
-None - 10-01 complete. Continue with 10-02-PLAN.md (inline comment UI).
+None - 10-02 complete. Continue with 10-03-PLAN.md (existing comment display).
 
 ### Blockers/Concerns
 
-None - state foundation complete, ready for UI implementation.
+None - UI components ready for integration.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 10-01-PLAN.md
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
