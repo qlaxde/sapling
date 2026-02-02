@@ -107,6 +107,9 @@ export default function ComparisonView({
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const reviewMode = useAtomValue(reviewModeAtom);
 
+  // State for PR-level comment input
+  const [showPrComment, setShowPrComment] = useState(false);
+
   // Get list of file paths for navigation
   const filePaths = useMemo(
     () =>
@@ -260,6 +263,34 @@ export default function ComparisonView({
         onNextFile={handleNextFile}
         showNavigation={reviewMode.active && filePaths.length > 1}
       />
+      {/* Review mode toolbar with pending comments badge and PR-level comment button */}
+      {reviewMode.active && reviewMode.prNumber && (
+        <div className="review-mode-header">
+          <PendingCommentsBadge prNumber={reviewMode.prNumber} />
+          <Button icon onClick={() => setShowPrComment(true)}>
+            <Icon icon="comment" slot="start" />
+            <T>Add comment</T>
+          </Button>
+          <span className="pending-info">
+            <T>Comments will be submitted with your review</T>
+          </span>
+        </div>
+      )}
+      {/* PR-level comment input */}
+      {reviewMode.active && reviewMode.prNumber && showPrComment && (
+        <div className="pr-level-comments">
+          <div className="pr-level-comments-header">
+            <span className="pr-level-comments-title">
+              <T>Review comment</T>
+            </span>
+          </div>
+          <CommentInput
+            prNumber={reviewMode.prNumber}
+            type="pr"
+            onCancel={() => setShowPrComment(false)}
+          />
+        </div>
+      )}
       <div className="comparison-view-details">{content}</div>
     </div>
   );
@@ -541,6 +572,8 @@ function ComparisonViewFile({
 
   // State for active comment input in review mode
   const [activeCommentLine, setActiveCommentLine] = useState<ActiveCommentLine>(null);
+  // State for file-level comment input
+  const [showFileComment, setShowFileComment] = useState(false);
 
   // Get pending comments for the current PR when in review mode
   const pendingComments = useAtomValue(
@@ -574,6 +607,16 @@ function ComparisonViewFile({
     (lineNumber: number, side: 'LEFT' | 'RIGHT', _path: string) => {
       if (reviewMode.active) {
         setActiveCommentLine({line: lineNumber, side});
+      }
+    },
+    [reviewMode.active],
+  );
+
+  // File comment click handler - only active in review mode
+  const onFileCommentClick = useCallback(
+    (_path: string) => {
+      if (reviewMode.active) {
+        setShowFileComment(true);
       }
     },
     [reviewMode.active],
@@ -625,6 +668,8 @@ function ComparisonViewFile({
     onToggleReviewed: handleToggleReviewed,
     // Wire up comment click handler when in review mode
     onCommentClick: reviewMode.active ? onCommentClick : undefined,
+    // Wire up file comment click handler when in review mode
+    onFileCommentClick: reviewMode.active ? onFileCommentClick : undefined,
   };
   return (
     <div
@@ -643,6 +688,17 @@ function ComparisonViewFile({
               line={activeCommentLine.line}
               side={activeCommentLine.side}
               onCancel={() => setActiveCommentLine(null)}
+            />
+          </div>
+        )}
+        {/* File-level comment input */}
+        {reviewMode.active && showFileComment && (
+          <div className="inline-comment-input-container">
+            <CommentInput
+              prNumber={reviewMode.prNumber!}
+              type="file"
+              path={path}
+              onCancel={() => setShowFileComment(false)}
             />
           </div>
         )}

@@ -48,6 +48,11 @@ export type Context = {
    * Used in review mode to open the comment input for inline comments.
    */
   onCommentClick?: (lineNumber: number, side: 'LEFT' | 'RIGHT', path: string) => void;
+  /**
+   * Optional callback for when the file-level comment button is clicked.
+   * Used in review mode to open the comment input for file-level comments.
+   */
+  onFileCommentClick?: (path: string) => void;
 };
 
 export type OneIndexedLineNumber = Exclude<number, 0>;
