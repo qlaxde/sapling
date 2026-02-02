@@ -15,3 +15,5 @@ export {
 } from './pendingCommentsState';
 
 export {CommentInput, type CommentInputProps} from './CommentInput';
+
+export {PendingCommentDisplay, type PendingCommentDisplayProps} from './PendingCommentDisplay';
