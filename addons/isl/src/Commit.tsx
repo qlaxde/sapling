@@ -26,6 +26,7 @@ import {useAutofocusRef} from 'shared/hooks';
 import {notEmpty, nullthrows} from 'shared/utils';
 import {spacing} from '../../components/theme/tokens.stylex';
 import {AllBookmarksTruncated, Bookmark, Bookmarks, createBookmarkAtCommit} from './Bookmark';
+import {CommitAvatar} from './Avatar';
 import {openBrowseUrlForHash, supportsBrowseUrlForHash} from './BrowseRepo';
 import {hasUnsavedEditedCommitMessage} from './CommitInfoView/CommitInfoState';
 import {showComparison} from './ComparisonView/atoms';
@@ -47,6 +48,12 @@ import {
   diffSummary,
   latestCommitMessageTitle,
 } from './codeReview/CodeReviewInfo';
+import {
+  showOnlyMyStacksAtom,
+  hideBotStacksAtom,
+  hideMergedStacksAtom,
+  isBotAuthor,
+} from './codeReview/PRStacksAtom';
 import {DiffBadge, DiffFollower, DiffInfo} from './codeReview/DiffBadge';
 import {SyncStatus, syncStatusAtom} from './codeReview/syncStatus';
 import {useFeatureFlagSync} from './featureFlags';
@@ -60,6 +67,7 @@ import {CONFLICT_SIDE_LABELS} from './mergeConflicts/consts';
 import {getAmendToOperation, isAmendToAllowedForCommit} from './operationUtils';
 import {GotoOperation} from './operations/GotoOperation';
 import {HideOperation} from './operations/HideOperation';
+import {WorktreeAddOperation} from './operations/WorktreeAddOperation';
 import {
   inlineProgressByHash,
   operationBeingPreviewed,
@@ -151,15 +159,60 @@ export const isExternalCommitByDiffId = atomFamilyWeak((diffId: string) =>
   }),
 );
 
+/**
+ * Atom to check if a commit should be visually dimmed based on active filters.
+ * Returns true if the commit matches any active filter criteria.
+ */
+export const isFilteredCommitByDiffId = atomFamilyWeak((diffId: string) =>
+  atom(get => {
+    if (!diffId) {
+      return false;
+    }
+
+    const summary = get(diffSummary(diffId));
+    if (summary?.value == null) {
+      return false;
+    }
+
+    const prAuthor = summary.value.type === 'github' ? summary.value.author : undefined;
+    const prState = summary.value.state;
+
+    // Check "show only my stacks" filter
+    const showOnlyMine = get(showOnlyMyStacksAtom);
+    if (showOnlyMine) {
+      const currentUser = get(currentGitHubUser);
+      if (currentUser && prAuthor && prAuthor !== currentUser) {
+        return true;
+      }
+    }
+
+    // Check "hide bots" filter
+    const hideBots = get(hideBotStacksAtom);
+    if (hideBots && isBotAuthor(prAuthor)) {
+      return true;
+    }
+
+    // Check "hide merged" filter
+    const hideMerged = get(hideMergedStacksAtom);
+    if (hideMerged && prState === 'MERGED') {
+      return true;
+    }
+
+    return false;
+  }),
+);
+
 export const Commit = memo(
   ({
     commit,
     previewType,
     hasChildren,
+    isOriginMain,
   }: {
     commit: DagCommitInfo | CommitInfo;
     previewType?: CommitPreview;
     hasChildren: boolean;
+    isOriginMain?: boolean;
   }) => {
     const isPublic = commit.phase === 'public';
     const isObsoleted = commit.successorInfo != null;
@@ -183,6 +236,9 @@ export const Commit = memo(
     const title = useAtomValue(latestCommitMessageTitle(commit.hash));
 
     const commitLabel = useAtomValue(commitLabelForCommit(commit.hash));
+
+    // Check if commit should be dimmed based on active filters
+    const isFiltered = useAtomValue(isFilteredCommitByDiffId(commit.diffId ?? ''));
 
     const clipboardCopy = (text: string, url?: string) =>
       copyAndShowToast(text, url == null ? undefined : clipboardLinkHtml(text, url));
@@ -335,6 +391,13 @@ export const Commit = memo(
           loggingLabel: 'Create Bookmark',
         });
         items.push({
+          label: <T>Checkout in Worktree</T>,
+          onClick: () => {
+            runOperation(new WorktreeAddOperation(commit.hash));
+          },
+          loggingLabel: 'Checkout in Worktree',
+        });
+        items.push({
           label: hasChildren ? <T>Hide Commit and Descendants</T> : <T>Hide Commit</T>,
           onClick: () =>
             writeAtom(
@@ -485,7 +548,9 @@ export const Commit = memo(
           'commit' +
           (commit.isDot ? ' head-commit' : '') +
           (commit.successorInfo != null ? ' obsolete' : '') +
-          (isIrrelevantToCwd ? ' irrelevant' : '')
+          (isIrrelevantToCwd ? ' irrelevant' : '') +
+          (isOriginMain ? ' origin-main-commit' : '') +
+          (isFiltered ? ' commit-filtered' : '')
         }
         onContextMenu={contextMenu}
         data-testid={`commit-${commit.hash}`}>
@@ -512,13 +577,22 @@ export const Commit = memo(
               </Tooltip>
             )}
             {isPublic ? null : (
-              <span className="commit-title">
-                {commitLabel && <CommitLabel>{commitLabel}</CommitLabel>}
-                <span>{title}</span>
-                <CommitDate date={commit.date} />
-              </span>
+              <>
+                <CommitAvatar username={commit.author} size={20} />
+                <span className="commit-title">
+                  {commitLabel && <CommitLabel>{commitLabel}</CommitLabel>}
+                  <span>{title}</span>
+                  <CommitDate date={commit.date} />
+                </span>
+              </>
             )}
             <UnsavedEditedMessageIndicator commit={commit} />
+            {isOriginMain && (
+              <span className="origin-main-badge">
+                <Icon icon="git-branch" />
+                <span>main</span>
+              </span>
+            )}
             {!isPublic && <BranchingPrs bookmarks={commit.remoteBookmarks} />}
             <AllBookmarksTruncated
               local={commit.bookmarks}
@@ -556,7 +630,8 @@ export const Commit = memo(
     return (
       commitEqual &&
       nextProps.previewType === prevProps.previewType &&
-      nextProps.hasChildren === prevProps.hasChildren
+      nextProps.hasChildren === prevProps.hasChildren &&
+      nextProps.isOriginMain === prevProps.isOriginMain
     );
   },
 );

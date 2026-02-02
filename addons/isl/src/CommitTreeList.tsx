@@ -35,10 +35,25 @@ import {
   useCommitCallbacks,
   useShortcutToRebaseSelected,
 } from './selection';
+import {useEffect} from 'react';
 import {commitFetchError, latestUncommittedChangesData} from './serverAPIState';
 import {MaybeEditStackModal} from './stackEdit/ui/EditStackModal';
 
 import './CommitTreeList.css';
+
+/**
+ * Check if a commit has origin/main or origin/master bookmark.
+ * Used to apply special highlighting to the main branch marker.
+ */
+function isOriginMain(commit: DagCommitInfo): boolean {
+  return commit.remoteBookmarks.some(
+    bookmark =>
+      bookmark === 'origin/main' ||
+      bookmark === 'origin/master' ||
+      bookmark === 'remote/main' ||
+      bookmark === 'remote/master',
+  );
+}
 
 type DagCommitListProps = {
   isNarrow: boolean;
@@ -181,12 +196,14 @@ const dagHasChildren = atomFamilyWeak((key: string) => {
 
 function DagCommitBody({info}: {info: DagCommitInfo}) {
   const hasChildren = useAtomValue(dagHasChildren(info.hash));
+  const isMainBranch = isOriginMain(info);
   return (
     <Commit
       commit={info}
       key={info.hash}
       previewType={info.previewType}
       hasChildren={hasChildren}
+      isOriginMain={isMainBranch}
     />
   );
 }
@@ -230,6 +247,53 @@ function HighlightedGlyph({info}: {info: DagCommitInfo}) {
   );
 }
 
+/**
+ * Scroll the middle column to show a commit at the top.
+ * Uses native scrollIntoView with CSS scroll-margin-top for padding.
+ * Waits for element to exist in DOM if not immediately available.
+ */
+export function scrollToCommit(hash: string): void {
+  const shortHash = hash.slice(0, 8);
+
+  const tryScroll = (attempt: number) => {
+    const element = document.getElementById(`commit-${hash}`);
+
+    if (element) {
+      console.log(`[scroll] ${shortHash} found on attempt ${attempt}, scrolling`);
+      element.scrollIntoView({behavior: 'smooth', block: 'start'});
+      return;
+    }
+
+    // Element not found - wait for React to render it (up to 5s)
+    if (attempt < 100) {
+      requestAnimationFrame(() => {
+        setTimeout(() => tryScroll(attempt + 1), 50);
+      });
+    } else {
+      console.log(`[scroll] ${shortHash} NOT found after ${attempt} attempts`);
+    }
+  };
+
+  console.log(`[scroll] ${shortHash} starting`);
+  // Wait for next frame before starting to poll
+  requestAnimationFrame(() => tryScroll(0));
+}
+
+/**
+ * Hook to scroll the commit tree to show the selected commit at the top.
+ */
+function useScrollToSelectedCommit() {
+  const selected = useAtomValue(selectedCommits);
+
+  useEffect(() => {
+    if (selected.size !== 1) {
+      return;
+    }
+    const hash = Array.from(selected)[0];
+    scrollToCommit(hash);
+  }, [selected]);
+}
+
 export function CommitTreeList() {
   // Make sure we trigger subscription to changes to uncommitted changes *before* we have a tree to render,
   // so we don't miss the first returned uncommitted changes message.
@@ -241,6 +305,7 @@ export function CommitTreeList() {
   useArrowKeysToChangeSelection();
   useBackspaceToHideSelected();
   useShortcutToRebaseSelected();
+  useScrollToSelectedCommit();
 
   const isNarrow = useAtomValue(isNarrowCommitTree);
 

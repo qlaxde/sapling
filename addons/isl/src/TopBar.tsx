@@ -19,6 +19,7 @@ import serverAPI from './ClientToServerAPI';
 import {CwdSelector} from './CwdSelector';
 import {DownloadCommitsTooltipButton} from './DownloadCommitsMenu';
 import {FocusModeToggle} from './FocusMode';
+import {NotificationBell} from './notifications/NotificationBell';
 import {generatedFileCache} from './GeneratedFile';
 import {PullButton} from './PullButton';
 import {SettingsGearButton} from './SettingsTooltip';
@@ -31,16 +32,37 @@ import {haveCommitsLoadedYet, haveRemotePath, isFetchingCommits} from './serverA
 
 import {Internal} from './Internal';
 import './TopBar.css';
+import {useCallback, useRef, useState} from 'react';
 
 export function TopBar() {
   const loaded = useAtomValue(haveCommitsLoadedYet);
   const canPush = useAtomValue(haveRemotePath);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const scrollListenerAttached = useRef(false);
+
+  // Callback ref to set up scroll listener when element mounts
+  const topBarRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node || scrollListenerAttached.current) return;
+
+    const scrollParent = node.closest('.drawer-main-content');
+    if (!scrollParent) return;
+
+    const handleScroll = () => {
+      setIsScrolled(scrollParent.scrollTop > 10);
+    };
+
+    // Check initial scroll position
+    handleScroll();
+
+    scrollParent.addEventListener('scroll', handleScroll, {passive: true});
+    scrollListenerAttached.current = true;
+  }, []);
 
   if (!loaded) {
     return null;
   }
   return (
-    <div className="top-bar">
+    <div className={`top-bar ${isScrolled ? 'scrolled' : ''}`} ref={topBarRef}>
       <span className="button-group">
         {canPush && <PullButton />}
         <CwdSelector />
@@ -55,6 +77,7 @@ export function TopBar() {
       <span className="button-group">
         <FlexSpacer />
         <DebugToolsButton />
+        <NotificationBell />
         <FocusModeToggle />
         <BugButton />
         <SettingsGearButton />
