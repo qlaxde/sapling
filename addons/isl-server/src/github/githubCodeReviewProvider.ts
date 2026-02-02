@@ -6,14 +6,18 @@
  */
 
 import type {
+  ClientToServerMessage,
   CodeReviewSystem,
   DiffComment,
   DiffId,
   DiffSignalSummary,
   Disposable,
+  DraftPullRequestReviewThread,
   Hash,
   Notification,
+  PullRequestReviewEvent,
   Result,
+  ServerToClientMessage,
 } from 'isl/src/types';
 import type {CodeReviewProvider} from '../CodeReviewProvider';
 import type {Logger} from '../logger';
@@ -44,6 +48,7 @@ import {
 } from './generated/graphql';
 import {parseStackInfo, type StackEntry} from './parseStackInfo';
 import queryGraphQL from './queryGraphQL';
+import {submitPullRequestReview} from './submitPullRequestReview';
 
 export type GitHubDiffSummary = {
   type: 'github';
@@ -409,6 +414,47 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
       this.codeReviewSystem.hostname,
       timeoutMs ?? DEFAULT_GH_FETCH_TIMEOUT,
     );
+  }
+
+  handleClientToServerMessage(
+    message: ClientToServerMessage,
+    postMessage: (message: ServerToClientMessage) => void,
+  ): boolean {
+    if (message.type === 'submitPullRequestReview') {
+      this.handleSubmitPullRequestReview(message, postMessage);
+      return true;
+    }
+    return false;
+  }
+
+  private async handleSubmitPullRequestReview(
+    message: {
+      type: 'submitPullRequestReview';
+      pullRequestId: string;
+      event: PullRequestReviewEvent;
+      body?: string;
+      threads?: DraftPullRequestReviewThread[];
+    },
+    postMessage: (message: ServerToClientMessage) => void,
+  ): Promise<void> {
+    try {
+      const reviewId = await submitPullRequestReview(
+        this.codeReviewSystem.hostname,
+        message.pullRequestId,
+        message.event,
+        message.body,
+        message.threads,
+      );
+      postMessage({
+        type: 'submittedPullRequestReview',
+        result: {value: {reviewId}},
+      });
+    } catch (error) {
+      postMessage({
+        type: 'submittedPullRequestReview',
+        result: {error: error as Error},
+      });
+    }
   }
 
   public dispose() {
