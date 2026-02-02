@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 9 of 14 (Review Mode Foundation + File Tracking) - COMPLETE
-Plan: 04 of 04
-Status: Phase complete
-Last activity: 2026-02-02 - Completed 09-04-PLAN.md
+Phase: 10 of 14 (Inline Comments + Threading)
+Plan: 01 of 05
+Status: In progress
+Last activity: 2026-02-02 - Completed 10-01-PLAN.md
 
 Progress: [████████░░] 64% (9 of 14 phases complete)
 
@@ -30,7 +30,7 @@ Progress: [████████░░] 64% (9 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 4 (09-01, 09-02, 09-03, 09-04)
+- Plans completed: 5 (09-01, 09-02, 09-03, 09-04, 10-01)
 - Phases: 9-14 (6 phases)
 - Coverage: 23/23 requirements mapped
 
@@ -63,16 +63,21 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Arrow-up/arrow-down icons for prev/next file navigation
 - useMemo for stable key generation in ComparisonViewFile
 
+**Phase 10 decisions (10-01):**
+- Use randomId() from shared/utils instead of crypto.randomUUID() for test compatibility
+- Single-line comments only (no startLine/startSide) per research recommendation
+- 7-day expiry for pending comments localStorage persistence
+
 ### Pending Todos
 
-None - Phase 9 complete. Ready for Phase 10: Inline Comments + Threading.
+None - 10-01 complete. Continue with 10-02-PLAN.md (inline comment UI).
 
 ### Blockers/Concerns
 
-None - research completed, architecture validated, requirements fully mapped.
+None - state foundation complete, ready for UI implementation.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 09-04-PLAN.md (Phase 9 complete)
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
