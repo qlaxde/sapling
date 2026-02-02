@@ -1,0 +1,67 @@
+/* Merge Controls - Review Mode */
+
+.merge-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad);
+  padding: var(--pad);
+  background: var(--panel-background);
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+}
+
+.merge-controls-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--halfpad);
+  color: var(--subtle-foreground);
+}
+
+.merge-controls-status {
+  padding-bottom: var(--halfpad);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.merge-controls-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--halfpad);
+}
+
+.merge-strategy-select {
+  display: flex;
+}
+
+.merge-strategy-select select {
+  flex: 1;
+}
+
+.merge-delete-branch {
+  display: flex;
+  align-items: center;
+  gap: var(--halfpad);
+  font-size: 12px;
+  color: var(--subtle-foreground);
+  cursor: pointer;
+}
+
+.merge-delete-branch input {
+  margin: 0;
+}
+
+.merge-block-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--halfpad);
+  background: var(--warning-background);
+  border-radius: var(--radius);
+}
+
+.merge-block-reason {
+  display: flex;
+  align-items: center;
+  gap: var(--halfpad);
+  font-size: 11px;
+  color: var(--warning-foreground);
+}
