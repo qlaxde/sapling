@@ -89,6 +89,34 @@ export type DiffCommentReaction = {
     | 'THUMBS_UP';
 };
 
+/**
+ * Individual CI check run status for detailed CI display
+ */
+export type CICheckRun = {
+  name: string;
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'QUEUED' | 'PENDING';
+  conclusion?: 'SUCCESS' | 'FAILURE' | 'NEUTRAL' | 'CANCELLED' | 'TIMED_OUT' | 'SKIPPED' | 'STALE';
+  detailsUrl?: string;
+};
+
+/**
+ * Mergeability state from GitHub
+ */
+export type MergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+
+/**
+ * Detailed merge state status from GitHub
+ */
+export type MergeStateStatus =
+  | 'BEHIND'     // Head ref out of date
+  | 'BLOCKED'    // Blocked by branch protection
+  | 'CLEAN'      // Ready to merge
+  | 'DIRTY'      // Merge conflicts
+  | 'DRAFT'      // PR is draft
+  | 'HAS_HOOKS'  // Pre-receive hooks
+  | 'UNKNOWN'    // Not yet computed
+  | 'UNSTABLE';  // Required checks not passing
+
 export type InternalCommitMessageFields = InternalTypes['InternalCommitMessageFields'];
 
 export enum CodePatchSuggestionStatus {

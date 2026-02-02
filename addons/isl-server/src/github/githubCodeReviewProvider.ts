@@ -6,6 +6,7 @@
  */
 
 import type {
+  CICheckRun,
   ClientToServerMessage,
   CodeReviewSystem,
   DiffComment,
@@ -14,6 +15,8 @@ import type {
   Disposable,
   DraftPullRequestReviewThread,
   Hash,
+  MergeableState,
+  MergeStateStatus,
   Notification,
   PullRequestReviewEvent,
   Result,
@@ -75,6 +78,14 @@ export type GitHubDiffSummary = {
   author?: string;
   /** Author avatar URL */
   authorAvatarUrl?: string;
+  /** Mergeability state: MERGEABLE, CONFLICTING, or UNKNOWN */
+  mergeable?: MergeableState;
+  /** Detailed merge state status */
+  mergeStateStatus?: MergeStateStatus;
+  /** Individual CI check runs for detailed status display */
+  ciChecks?: CICheckRun[];
+  /** Whether viewer can bypass branch protection to merge */
+  viewerCanMergeAsAdmin?: boolean;
 };
 
 const DEFAULT_GH_FETCH_TIMEOUT = 60_000; // 1 minute
@@ -206,6 +217,11 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
               stackInfo,
               author: summary.author?.login ?? undefined,
               authorAvatarUrl: summary.author?.avatarUrl ?? undefined,
+              // Merge + CI status fields (Phase 12)
+              mergeable: summary.mergeable as MergeableState | undefined,
+              mergeStateStatus: summary.mergeStateStatus as MergeStateStatus | undefined,
+              ciChecks: extractCIChecks(summary),
+              viewerCanMergeAsAdmin: summary.viewerCanMergeAsAdmin ?? undefined,
             });
           }
         }
@@ -638,6 +654,45 @@ function githubStatusRollupStateToCIStatus(state: StatusState | undefined): Diff
     case StatusState.Success:
       return 'pass';
   }
+}
+
+/**
+ * Extract CI check runs from the GraphQL PR data.
+ * Handles both CheckRun (GitHub Checks API) and StatusContext (legacy status API).
+ */
+function extractCIChecks(pr: any): CICheckRun[] | undefined {
+  const contexts = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes;
+  if (!contexts || contexts.length === 0) {
+    return undefined;
+  }
+
+  return contexts
+    .filter(notEmpty)
+    .map(context => {
+      if (context.__typename === 'CheckRun') {
+        return {
+          name: context.name ?? 'Unknown',
+          status: (context.status ?? 'QUEUED') as CICheckRun['status'],
+          conclusion: context.conclusion as CICheckRun['conclusion'],
+          detailsUrl: context.detailsUrl,
+        };
+      } else {
+        // StatusContext (legacy status API)
+        return {
+          name: context.context ?? 'Unknown',
+          status: context.state === 'PENDING' ? 'PENDING' : 'COMPLETED',
+          conclusion:
+            context.state === 'SUCCESS'
+              ? 'SUCCESS'
+              : context.state === 'FAILURE'
+                ? 'FAILURE'
+                : context.state === 'ERROR'
+                  ? 'FAILURE'
+                  : undefined,
+          detailsUrl: context.targetUrl,
+        } as CICheckRun;
+      }
+    });
 }
 
 type GitHubNotificationResponse = {
