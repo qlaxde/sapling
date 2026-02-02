@@ -237,15 +237,22 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
 
     this.logger.info(`fetched ${comments?.length} comments for github PR ${diffId}}`);
 
+    // Fetch thread IDs separately via reviewThreads query
+    const threadMap = await this.fetchThreadInfo(diffId);
+
     return (
       [...comments, ...inline]?.filter(notEmpty).map(comment => {
+        const reviewComment = comment as PullRequestReviewComment;
+        // Match thread by path and line to get the threadId
+        const threadKey = `${reviewComment.path ?? ''}:${reviewComment.line ?? ''}`;
+        const threadInfo = threadMap.get(threadKey);
         return {
           author: comment.author?.login ?? '',
           authorAvatarUri: comment.author?.avatarUrl,
           html: comment.bodyHTML,
           created: new Date(comment.createdAt),
-          filename: (comment as PullRequestReviewComment).path ?? undefined,
-          line: (comment as PullRequestReviewComment).line ?? undefined,
+          filename: reviewComment.path ?? undefined,
+          line: reviewComment.line ?? undefined,
           reactions:
             comment.reactions?.nodes
               ?.filter(
@@ -257,9 +264,96 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
                 reaction: reaction.content,
               })) ?? [],
           replies: [], // PR top level doesn't have nested replies, you just reply to their name
+          threadId: threadInfo?.id,
+          isResolved: threadInfo?.isResolved,
         };
       }) ?? []
     );
+  }
+
+  /**
+   * Fetch thread IDs for inline comments.
+   * Returns a map of `path:line` -> { id, isResolved }
+   */
+  private async fetchThreadInfo(
+    diffId: string,
+  ): Promise<Map<string, {id: string; isResolved: boolean}>> {
+    const threadQuery = `
+      query PullRequestThreadsQuery($url: URI!) {
+        resource(url: $url) {
+          ... on PullRequest {
+            reviewThreads(first: 100) {
+              nodes {
+                id
+                isResolved
+                path
+                line
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    type ThreadQueryData = {
+      resource?: {
+        reviewThreads?: {
+          nodes?: Array<{
+            id: string;
+            isResolved: boolean;
+            path: string;
+            line: number | null;
+          } | null> | null;
+        } | null;
+      } | null;
+    };
+
+    try {
+      const response = await this.query<ThreadQueryData, {url: string}>(threadQuery, {
+        url: this.getPrUrl(diffId),
+      });
+
+      const threads = response?.resource?.reviewThreads?.nodes ?? [];
+      const map = new Map<string, {id: string; isResolved: boolean}>();
+      for (const thread of threads) {
+        if (thread != null) {
+          const key = `${thread.path}:${thread.line ?? ''}`;
+          map.set(key, {id: thread.id, isResolved: thread.isResolved});
+        }
+      }
+      return map;
+    } catch (error) {
+      this.logger.error('Failed to fetch thread info:', error);
+      return new Map();
+    }
+  }
+
+  /**
+   * Reply to an existing comment thread.
+   * Replies are submitted immediately (not batched) because they're on existing threads.
+   */
+  public async replyToThread(threadId: string, body: string): Promise<void> {
+    const mutation = `
+      mutation AddReply($threadId: ID!, $body: String!) {
+        addPullRequestReviewThreadReply(input: {
+          pullRequestReviewThreadId: $threadId,
+          body: $body
+        }) {
+          comment {
+            id
+          }
+        }
+      }
+    `;
+
+    const response = await this.query<
+      {addPullRequestReviewThreadReply?: {comment?: {id: string} | null} | null},
+      {threadId: string; body: string}
+    >(mutation, {threadId, body});
+
+    if (response?.addPullRequestReviewThreadReply?.comment?.id == null) {
+      throw new Error('Failed to add reply to thread');
+    }
   }
 
   private query<D, V>(query: string, variables: V, timeoutMs?: number): Promise<D | undefined> {

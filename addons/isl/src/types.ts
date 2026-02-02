@@ -167,6 +167,8 @@ export type DiffComment = {
   replies: Array<DiffComment>;
   /** If this comment has been resolved. true => "resolved", false => "unresolved", null => the comment is not resolvable, don't show any UI for it */
   isResolved?: boolean;
+  /** Thread ID for replies (GitHub thread node ID). Used for COM-05, COM-06 reply/resolution. */
+  threadId?: string;
 };
 
 /**
