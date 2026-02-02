@@ -49,6 +49,7 @@ import {GeneratedStatus} from '../types';
 import {SplitDiffView} from './SplitDiffView';
 import {currentComparisonMode, reviewedFilesAtom, reviewedFileKey, reviewedFileKeyForPR} from './atoms';
 import {parsePatchAndFilter, sortFilesByType} from './utils';
+import {SyncPRButton} from './SyncPRButton';
 
 import './ComparisonView.css';
 
@@ -280,6 +281,12 @@ export default function ComparisonView({
             <Icon icon="comment" slot="start" />
             <T>Add comment</T>
           </Button>
+          {reviewMode.prHeadHash && (
+            <SyncPRButton
+              prNumber={reviewMode.prNumber}
+              headHash={reviewMode.prHeadHash}
+            />
+          )}
           <span className="pending-info">
             <T>Comments will be submitted with your review</T>
           </span>

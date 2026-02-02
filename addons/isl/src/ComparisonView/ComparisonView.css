@@ -197,3 +197,45 @@
   padding: var(--pad);
   border-bottom: 1px solid var(--panel-border);
 }
+
+/* Sync warning modal */
+.sync-warning-modal {
+  max-width: 400px;
+}
+
+.sync-warning-content {
+  padding: var(--pad);
+}
+
+.sync-warning-content h3 {
+  margin-bottom: var(--pad);
+  color: var(--foreground);
+}
+
+.sync-warning-details {
+  margin-bottom: var(--pad);
+}
+
+.warning-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.warning-icon {
+  margin-right: 8px;
+  font-weight: bold;
+}
+
+.warning-explanation {
+  font-size: 0.9em;
+  color: var(--subtle-foreground);
+  margin-left: 24px;
+}
+
+.sync-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--halfpad);
+}
