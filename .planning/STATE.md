@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 12 of 14 (Merge + CI Status)
-Plan: 02 of 04
+Plan: 03 of 04
 Status: In progress
-Last activity: 2026-02-02 - Completed 12-02-PLAN.md
+Last activity: 2026-02-02 - Completed 12-03-PLAN.md
 
-Progress: [███████████░] 80% (11 of 14 phases complete, 12-01 and 12-02 done)
+Progress: [███████████░] 82% (11 of 14 phases complete, 12-01, 12-02, and 12-03 done)
 
 ## Performance Metrics
 
@@ -30,9 +30,9 @@ Progress: [███████████░] 80% (11 of 14 phases complete, 
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 14 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02)
+- Plans completed: 15 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04, 10-05, 11-01, 11-03, 11-04, 12-01, 12-02, 12-03)
 - Phases: 9-14 (6 phases)
-- Phases 9-11 complete, Phase 12 in progress (2/4 plans done)
+- Phases 9-11 complete, Phase 12 in progress (3/4 plans done)
 - Coverage: 23/23 requirements mapped
 
 ## Accumulated Context
@@ -115,16 +115,22 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - reviewMode/ directory for UI components, reviewMode.ts for state (separated concerns)
 - Expandable details on click rather than always visible (reduces clutter)
 
+**Phase 12 decisions (12-03):**
+- Use 'RunOperation' TrackEventName (generic event for operations)
+- Merge via gh CLI using CommandRunner.CodeReviewProvider
+- Non-interactive mode (--yes flag) since ISL can't handle prompts
+- Comprehensive blocking checks (CI, reviews, conflicts, branch protection, draft status)
+
 ### Pending Todos
 
-Continue Phase 12 with 12-03 (CI Status Display), 12-04 (Integration).
+Continue Phase 12 with 12-04 (Merge Controls UI + Integration).
 
 ### Blockers/Concerns
 
-None - CIStatusBadge component ready for integration in merge controls.
+None - MergePROperation and mergeability logic ready for UI integration.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 12-02-PLAN.md
-Resume file: None - Continue with Phase 12-03 (CI Status Display)
+Stopped at: Completed 12-03-PLAN.md
+Resume file: None - Continue with Phase 12-04 (Merge Controls UI)
