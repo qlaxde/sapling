@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 MVP** - Phases 1-5 (shipped 2026-01-22)
 - ✅ **v1.1 Refinement & Fixes** - Phases 6-8 (shipped 2026-02-02)
-- 📋 **v1.2 PR Review View** - Phases 9-14 (planned)
+- ✅ **v1.2 PR Review View** - Phases 9-14 (shipped 2026-02-02)
 
 ## Overview
 
@@ -110,7 +110,8 @@ Plans:
 
 </details>
 
-### 📋 v1.2 PR Review View (Planned)
+<details>
+<summary>✅ v1.2 PR Review View (Phases 9-14) - SHIPPED 2026-02-02</summary>
 
 **Milestone Goal:** Transform ISL into a complete PR review experience with inline commenting, review submission, merge capabilities, and stacked PR navigation. Extends existing ComparisonView and PRDashboard components rather than building parallel systems.
 
@@ -218,9 +219,11 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — Stack context atom (currentPRStackContextAtom in PRStacksAtom.ts)
-- [ ] 14-02-PLAN.md — StackNavigationBar component with PR pill buttons
-- [ ] 14-03-PLAN.md — State preservation verification and human testing
+- [x] 14-01-PLAN.md — Stack context atom (currentPRStackContextAtom in PRStacksAtom.ts)
+- [x] 14-02-PLAN.md — StackNavigationBar component with PR pill buttons
+- [x] 14-03-PLAN.md — State preservation verification and human testing
+
+</details>
 
 ## Progress
 
@@ -241,4 +244,4 @@ Plans:
 | 11. Review Submission | v1.2 | 4/4 | Complete | 2026-02-02 |
 | 12. Merge + CI Status | v1.2 | 4/4 | Complete | 2026-02-02 |
 | 13. Sync/Rebase | v1.2 | 5/5 | Complete | 2026-02-02 |
-| 14. Stacked PR Navigation | v1.2 | 0/3 | Planned | - |
+| 14. Stacked PR Navigation | v1.2 | 3/3 | Complete | 2026-02-02 |
