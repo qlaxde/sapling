@@ -50,6 +50,7 @@ import {SplitDiffView} from './SplitDiffView';
 import {currentComparisonMode, reviewedFilesAtom, reviewedFileKey, reviewedFileKeyForPR} from './atoms';
 import {parsePatchAndFilter, sortFilesByType} from './utils';
 import {SyncPRButton} from './SyncPRButton';
+import {SyncProgress} from './SyncProgress';
 
 import './ComparisonView.css';
 
@@ -287,6 +288,7 @@ export default function ComparisonView({
               headHash={reviewMode.prHeadHash}
             />
           )}
+          <SyncProgress prNumber={reviewMode.prNumber} />
           <span className="pending-info">
             <T>Comments will be submitted with your review</T>
           </span>
