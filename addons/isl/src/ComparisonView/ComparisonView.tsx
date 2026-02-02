@@ -33,6 +33,12 @@ import {useGeneratedFileStatuses} from '../GeneratedFile';
 import {T, t} from '../i18n';
 import {atomFamilyWeak, atomLoadableWithRefresh, localStorageBackedAtom} from '../jotaiUtils';
 import platform from '../platform';
+import {
+  pendingCommentsAtom,
+  CommentInput,
+  PendingCommentDisplay,
+  PendingCommentsBadge,
+} from '../reviewComments';
 import {latestHeadCommit} from '../serverAPIState';
 import {reviewModeAtom} from '../reviewMode';
 import {themeState} from '../theme';
@@ -508,6 +514,11 @@ function useComparisonDisplayMode(): ComparisonDisplayMode {
   return mode;
 }
 
+type ActiveCommentLine = {
+  line: number;
+  side: 'LEFT' | 'RIGHT';
+} | null;
+
 function ComparisonViewFile({
   diff,
   comparison,
@@ -528,6 +539,19 @@ function ComparisonViewFile({
   const path = diff.newFileName ?? diff.oldFileName ?? '';
   const reviewMode = useAtomValue(reviewModeAtom);
 
+  // State for active comment input in review mode
+  const [activeCommentLine, setActiveCommentLine] = useState<ActiveCommentLine>(null);
+
+  // Get pending comments for the current PR when in review mode
+  const pendingComments = useAtomValue(
+    pendingCommentsAtom(reviewMode.prNumber ?? ''),
+  );
+
+  // Filter pending comments for the current file
+  const filePendingComments = useMemo(() => {
+    return pendingComments.filter(comment => comment.path === path);
+  }, [pendingComments, path]);
+
   // Use PR-aware key when in review mode to enable reset on PR updates
   const reviewKey = useMemo(() => {
     if (reviewMode.active && reviewMode.prNumber != null && reviewMode.prHeadHash != null) {
@@ -544,6 +568,16 @@ function ComparisonViewFile({
   const handleToggleReviewed = useCallback(() => {
     setReviewed(prev => !prev);
   }, [setReviewed]);
+
+  // Comment click handler - only active in review mode
+  const onCommentClick = useCallback(
+    (lineNumber: number, side: 'LEFT' | 'RIGHT', _path: string) => {
+      if (reviewMode.active) {
+        setActiveCommentLine({line: lineNumber, side});
+      }
+    },
+    [reviewMode.active],
+  );
 
   const context: Context = {
     id: {path, comparison},
@@ -589,6 +623,8 @@ function ComparisonViewFile({
     display: displayMode,
     reviewed,
     onToggleReviewed: handleToggleReviewed,
+    // Wire up comment click handler when in review mode
+    onCommentClick: reviewMode.active ? onCommentClick : undefined,
   };
   return (
     <div
@@ -597,6 +633,31 @@ function ComparisonViewFile({
       ref={element => setRef?.(path, element)}>
       <ErrorBoundary>
         <SplitDiffView ctx={context} patch={diff} path={path} generatedStatus={generatedStatus} />
+        {/* Inline comment input when a line is active */}
+        {reviewMode.active && activeCommentLine != null && (
+          <div className="inline-comment-input-container">
+            <CommentInput
+              prNumber={reviewMode.prNumber!}
+              type="inline"
+              path={path}
+              line={activeCommentLine.line}
+              side={activeCommentLine.side}
+              onCancel={() => setActiveCommentLine(null)}
+            />
+          </div>
+        )}
+        {/* Display pending comments for this file */}
+        {reviewMode.active && filePendingComments.length > 0 && (
+          <div className="file-pending-comments">
+            {filePendingComments.map(comment => (
+              <PendingCommentDisplay
+                key={comment.id}
+                comment={comment}
+                prNumber={reviewMode.prNumber!}
+              />
+            ))}
+          </div>
+        )}
       </ErrorBoundary>
     </div>
   );

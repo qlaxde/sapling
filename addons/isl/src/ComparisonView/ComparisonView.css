@@ -115,3 +115,63 @@
 .comparison-view-file-navigation button:disabled {
   opacity: 0.3;
 }
+
+/* Inline comment input in review mode */
+.inline-comment-input-container {
+  padding: var(--pad);
+  border-top: 1px solid var(--graphite-border);
+  background: var(--graphite-bg-subtle);
+}
+
+/* Pending comments section for a file */
+.file-pending-comments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--halfpad);
+  padding: var(--pad);
+  border-top: 1px solid var(--graphite-border);
+  background: var(--graphite-bg-subtle);
+}
+
+/* Review mode header section */
+.review-mode-header {
+  display: flex;
+  align-items: center;
+  gap: var(--pad);
+  padding: var(--halfpad) var(--pad);
+  background: var(--graphite-bg-subtle);
+  border-radius: 4px;
+  margin-bottom: var(--pad);
+}
+
+.review-mode-header .pending-info {
+  font-size: 12px;
+  color: var(--graphite-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--halfpad);
+}
+
+/* PR-level comment section */
+.pr-level-comments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--halfpad);
+  padding: var(--pad);
+  border: 1px solid var(--graphite-border);
+  border-radius: 4px;
+  margin-bottom: var(--pad);
+  background: var(--graphite-bg-subtle);
+}
+
+.pr-level-comments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--halfpad);
+}
+
+.pr-level-comments-title {
+  font-weight: 500;
+  color: var(--graphite-text-primary);
+}
