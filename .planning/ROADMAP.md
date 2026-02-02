@@ -200,11 +200,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — SyncPROperation class for gh pr update-branch
-- [ ] 13-02-PLAN.md — Sync warning detection (pending comments, viewed files)
-- [ ] 13-03-PLAN.md — SyncPRButton with warning modal in review mode
-- [ ] 13-04-PLAN.md — Stack rebase via existing RebaseAllDraftCommitsOperation
-- [ ] 13-05-PLAN.md — Sync progress feedback in review mode
+- [x] 13-01-PLAN.md — SyncPROperation class for gh pr update-branch
+- [x] 13-02-PLAN.md — Sync warning detection (pending comments, viewed files)
+- [x] 13-03-PLAN.md — SyncPRButton with warning modal in review mode
+- [x] 13-04-PLAN.md — Stack rebase via existing RebaseAllDraftCommitsOperation
+- [x] 13-05-PLAN.md — Sync progress feedback in review mode
 
 #### Phase 14: Stacked PR Navigation
 **Goal**: User can navigate between PRs in a stack without exiting review mode
@@ -240,5 +240,5 @@ Plans:
 | 10. Inline Comments + Threading | v1.2 | 5/5 | Complete | 2026-02-02 |
 | 11. Review Submission | v1.2 | 4/4 | Complete | 2026-02-02 |
 | 12. Merge + CI Status | v1.2 | 4/4 | Complete | 2026-02-02 |
-| 13. Sync/Rebase | v1.2 | 0/5 | Planned | - |
+| 13. Sync/Rebase | v1.2 | 5/5 | Complete | 2026-02-02 |
 | 14. Stacked PR Navigation | v1.2 | 0/3 | Planned | - |
