@@ -41,6 +41,8 @@ import {
 } from '../reviewComments';
 import {latestHeadCommit} from '../serverAPIState';
 import {reviewModeAtom} from '../reviewMode';
+import {useSubmitReview} from '../reviewSubmission/useSubmitReview';
+import {allDiffSummaries} from '../codeReview/CodeReviewInfo';
 import {themeState} from '../theme';
 import {GeneratedStatus} from '../types';
 import {SplitDiffView} from './SplitDiffView';
@@ -337,6 +339,22 @@ function ComparisonViewHeader({
     ) === true;
   const isLoading = compared.state === 'loading';
 
+  // Review mode: Get nodeId from diff summaries for Submit Review button
+  const reviewMode = useAtomValue(reviewModeAtom);
+  const allDiffs = useAtomValue(allDiffSummaries);
+
+  // Get nodeId from diff summaries when in review mode
+  const nodeId = useMemo(() => {
+    if (!reviewMode.active || !reviewMode.prNumber) return undefined;
+    const summaries = allDiffs.value;
+    if (!summaries) return undefined;
+    const summary = summaries.get(reviewMode.prNumber);
+    if (summary?.type !== 'github') return undefined;
+    return summary.nodeId;
+  }, [reviewMode.active, reviewMode.prNumber, allDiffs]);
+
+  const {submitReview, canSubmit, pendingCommentCount} = useSubmitReview(nodeId);
+
   return (
     <>
       <div className="comparison-view-header">
@@ -399,6 +417,19 @@ function ComparisonViewHeader({
                 <Icon icon="arrow-down" />
               </Button>
             </span>
+          )}
+          {reviewMode.active && (
+            <Button
+              kind="primary"
+              onClick={submitReview}
+              disabled={!canSubmit}
+              data-testid="submit-review-button">
+              <Icon icon="check" slot="start" />
+              <T>Submit Review</T>
+              {pendingCommentCount > 0 && (
+                <span className="pending-badge">{pendingCommentCount}</span>
+              )}
+            </Button>
           )}
           <Button
             onClick={() => {
