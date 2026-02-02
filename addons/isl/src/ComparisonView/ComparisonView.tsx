@@ -41,7 +41,7 @@ import {
 } from '../reviewComments';
 import {latestHeadCommit} from '../serverAPIState';
 import {reviewModeAtom} from '../reviewMode';
-import {useSubmitReview} from '../reviewSubmission/useSubmitReview';
+import {useSubmitReview} from '../reviewSubmission';
 import {allDiffSummaries} from '../codeReview/CodeReviewInfo';
 import {themeState} from '../theme';
 import {GeneratedStatus} from '../types';
