@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 10 of 14 (Inline Comments + Threading)
-Plan: 03 of 05
+Plan: 04 of 05
 Status: In progress
-Last activity: 2026-02-02 - Completed 10-03-PLAN.md
+Last activity: 2026-02-02 - Completed 10-04-PLAN.md
 
 Progress: [████████░░] 64% (9 of 14 phases complete)
 
@@ -30,7 +30,7 @@ Progress: [████████░░] 64% (9 of 14 phases complete)
 - Shipped: 2026-02-02
 
 **v1.2 Milestone:**
-- Plans completed: 7 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03)
+- Plans completed: 8 (09-01, 09-02, 09-03, 09-04, 10-01, 10-02, 10-03, 10-04)
 - Phases: 9-14 (6 phases)
 - Coverage: 23/23 requirements mapped
 
@@ -78,16 +78,22 @@ Key decisions from v1.0/v1.1 are logged in PROJECT.md. Summary:
 - Immediate submission for replies (not batched like new comments)
 - Separate fetchThreadInfo query to get thread IDs from reviewThreads
 
+**Phase 10 decisions (10-04):**
+- Resolved threads start collapsed by default (focus on outstanding issues)
+- Optimistic UI with local resolution state for immediate feedback
+- Auto-collapse 500ms after resolution for smooth transition
+- Grey border for resolved threads (colors.grey token)
+
 ### Pending Todos
 
-None - 10-03 complete. Continue with 10-04-PLAN.md (thread resolution).
+None - 10-04 complete. Continue with 10-05-PLAN.md (comment filtering).
 
 ### Blockers/Concerns
 
-None - reply functionality ready for integration.
+None - thread resolution ready for use.
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 10-03-PLAN.md
+Stopped at: Completed 10-04-PLAN.md
 Resume file: None
