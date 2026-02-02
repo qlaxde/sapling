@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import {randomId} from 'shared/utils';
 import {localStorageBackedAtomFamily, readAtom, writeAtom} from '../jotaiUtils';
 
 /**
@@ -51,7 +52,7 @@ export function addPendingComment(
   const atom = pendingCommentsAtom(prNumber);
   const newComment: PendingComment = {
     ...comment,
-    id: crypto.randomUUID(),
+    id: randomId(),
     createdAt: Date.now(),
   };
   writeAtom(atom, prev => [...prev, newComment]);
