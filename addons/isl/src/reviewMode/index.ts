@@ -14,6 +14,9 @@ export type {ReviewModeState} from '../reviewMode';
 export {CIStatusBadge} from './CIStatusBadge';
 export type {CIStatusBadgeProps} from './CIStatusBadge';
 
+export {MergeControls} from './MergeControls';
+export type {MergeControlsProps} from './MergeControls';
+
 // Export merge state and utilities
 export {
   mergeInProgressAtom,
