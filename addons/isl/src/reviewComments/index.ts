@@ -13,3 +13,5 @@ export {
   clearPendingComments,
   getPendingCommentCount,
 } from './pendingCommentsState';
+
+export {CommentInput, type CommentInputProps} from './CommentInput';
