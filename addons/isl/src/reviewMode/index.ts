@@ -13,3 +13,11 @@ export type {ReviewModeState} from '../reviewMode';
 // Export new components
 export {CIStatusBadge} from './CIStatusBadge';
 export type {CIStatusBadgeProps} from './CIStatusBadge';
+
+// Export merge state and utilities
+export {
+  mergeInProgressAtom,
+  deriveMergeability,
+  formatMergeBlockReasons,
+} from './mergeState';
+export type {MergeabilityStatus, PRMergeabilityData} from './mergeState';
