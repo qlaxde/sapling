@@ -51,6 +51,8 @@ import {currentComparisonMode, reviewedFilesAtom, reviewedFileKey, reviewedFileK
 import {parsePatchAndFilter, sortFilesByType} from './utils';
 import {SyncPRButton} from './SyncPRButton';
 import {SyncProgress} from './SyncProgress';
+import {currentPRStackContextAtom} from '../codeReview/PRStacksAtom';
+import {enterReviewMode} from '../reviewMode';
 
 import './ComparisonView.css';
 
@@ -71,6 +73,56 @@ const currentComparisonData = atomFamilyWeak((comparison: Comparison) =>
     return mapResult(event.data.diff, parsePatchAndFilter);
   }),
 );
+
+/**
+ * Horizontal bar showing all PRs in a stack for navigation.
+ * Only renders when in review mode with a multi-PR stack.
+ */
+function StackNavigationBar() {
+  const stackContext = useAtomValue(currentPRStackContextAtom);
+
+  // Don't render if not in review mode or single PR
+  if (!stackContext || stackContext.isSinglePr) {
+    return null;
+  }
+
+  const handleNavigateToPR = (prNumber: number, headHash: string) => {
+    // Skip navigation if headHash is empty (PR not in summaries)
+    if (!headHash) {
+      return;
+    }
+    enterReviewMode(String(prNumber), headHash);
+  };
+
+  return (
+    <div className="stack-navigation-bar">
+      <span className="stack-label">
+        <T>Stack</T>
+      </span>
+      <div className="stack-pr-pills">
+        {stackContext.entries.map((entry, idx) => (
+          <Tooltip
+            key={entry.prNumber}
+            title={entry.title}
+            delayMs={500}
+          >
+            <Button
+              className={`stack-pr-pill ${entry.isCurrent ? 'stack-pr-current' : ''} ${entry.state === 'MERGED' ? 'stack-pr-merged' : ''}`}
+              onClick={() => handleNavigateToPR(entry.prNumber, entry.headHash)}
+              disabled={entry.isCurrent || !entry.headHash}
+            >
+              #{entry.prNumber}
+              {entry.state === 'MERGED' && <Icon icon="check" />}
+            </Button>
+          </Tooltip>
+        ))}
+      </div>
+      <span className="stack-position">
+        {stackContext.currentIndex + 1} / {stackContext.stackSize}
+      </span>
+    </div>
+  );
+}
 
 type LineRangeKey = string;
 export function keyForLineRange(param: {path: string; comparison: Comparison}): LineRangeKey {
@@ -268,6 +320,7 @@ export default function ComparisonView({
         onNextFile={handleNextFile}
         showNavigation={reviewMode.active && filePaths.length > 1}
       />
+      <StackNavigationBar />
       {/* Merge controls section - only shown in review mode with a PR */}
       {reviewMode.active && reviewMode.prNumber && (
         <div className="comparison-view-merge-section">
