@@ -56,6 +56,8 @@ export type GitHubDiffSummary = {
   commitMessage: string;
   state: PullRequestState | 'DRAFT' | 'MERGE_QUEUED';
   number: DiffId;
+  /** GitHub GraphQL node ID, required for mutations like addPullRequestReview */
+  nodeId: string;
   url: string;
   commentCount: number;
   anyUnresolvedComments: false;
@@ -190,6 +192,7 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
                     ? 'MERGE_QUEUED'
                     : summary.state,
               number: id,
+              nodeId: summary.id,
               url: summary.url,
               commentCount: summary.comments.totalCount,
               anyUnresolvedComments: false,
