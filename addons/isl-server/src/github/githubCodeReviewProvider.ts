@@ -151,7 +151,8 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     const variables = {
       // Fetch all open PRs in the repo updated in the last 30 days
       searchQuery: `repo:${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo} is:pr is:open updated:>=${dateFilter}`,
-      numToFetch: 50,
+      // Reduced from 50 to avoid GitHub's 500k node limit (numToFetch × 100 commits × 100 contexts)
+      numToFetch: 20,
     };
     if (includeMergeQueue) {
       return this.query<YourPullRequestsQueryData, YourPullRequestsQueryVariables>(

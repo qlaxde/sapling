@@ -426,6 +426,9 @@ function ComparisonViewHeader({
 
   return (
     <>
+      <div style={{background: 'magenta', color: 'white', padding: '4px 8px', fontWeight: 'bold'}}>
+        LOCAL DEV BUILD v2 - ComparisonView
+      </div>
       <div className="comparison-view-header">
         <span className="comparison-view-header-group">
           <Dropdown

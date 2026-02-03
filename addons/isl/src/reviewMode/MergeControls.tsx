@@ -105,6 +105,11 @@ export function MergeControls({prNumber}: MergeControlsProps) {
 
     // Use branch name if available, otherwise fall back to PR number
     const source = branchName || `pr${prNumber}`;
+
+    // DEBUG: Log what we're doing
+    // eslint-disable-next-line no-console
+    console.log('[MergeControls] handleRebase called', {prNumber, branchName, source});
+
     if (!source) {
       showToast(t('Cannot rebase: PR branch not found'), {durationMs: 5000});
       return;
@@ -113,10 +118,14 @@ export function MergeControls({prNumber}: MergeControlsProps) {
     try {
       // First, pull the PR to ensure it exists locally (without --goto)
       // This uses `sl pr get` which discovers and imports the full stack
+      // eslint-disable-next-line no-console
+      console.log('[MergeControls] Starting PullStackOperation for PR', prNumber);
       showToast(t('Pulling PR #$pr...', {replace: {$pr: prNumber}}), {durationMs: 3000});
       await runOperation(new PullStackOperation(Number(prNumber), /* goto */ false));
 
       // Now rebase the PR's commit onto main using Sapling
+      // eslint-disable-next-line no-console
+      console.log('[MergeControls] Starting RebaseOperation with source:', source);
       showToast(t('Rebasing onto main...'), {durationMs: 3000});
       await runOperation(new RebaseOperation(
         succeedableRevset(source),
@@ -125,6 +134,8 @@ export function MergeControls({prNumber}: MergeControlsProps) {
 
       showToast(t('Rebase complete! Push changes to update the PR.'), {durationMs: 5000});
     } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[MergeControls] Rebase failed:', error);
       showToast(t('Rebase failed: $error', {replace: {$error: String(error)}}), {durationMs: 8000});
     }
   }, [pr, prNumber, runOperation]);
@@ -189,6 +200,7 @@ export function MergeControls({prNumber}: MergeControlsProps) {
   if (!pr) {
     return (
       <div className="merge-controls merge-controls-loading">
+        <div style={{color: 'magenta', fontWeight: 'bold'}}>LOCAL DEV BUILD v2</div>
         <Icon icon="loading" /> Loading...
       </div>
     );
