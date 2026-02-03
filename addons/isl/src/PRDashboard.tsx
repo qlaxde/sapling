@@ -469,6 +469,7 @@ function PRRow({pr}: {pr: DiffSummary}) {
   const stateIcon = getPRStateIcon(pr.state);
   const stateClass = getPRStateClass(pr.state);
   const headHash = pr.type === 'github' ? pr.head : undefined;
+  const isMerged = pr.state === 'MERGED';
 
   const runOperation = useRunOperation();
   const dag = useAtomValue(dagWithPreviews);
@@ -529,6 +530,12 @@ function PRRow({pr}: {pr: DiffSummary}) {
       <span className="pr-row-title" title={pr.title}>
         {pr.title}
       </span>
+      {isMerged && (
+        <span className="pr-row-merged-badge">
+          <Icon icon="check" size="S" />
+          <T>Merged</T>
+        </span>
+      )}
       {headHash && (
         <Tooltip title="Enter review mode for this PR">
           <Button icon className="pr-row-review-button" onClick={handleReview}>

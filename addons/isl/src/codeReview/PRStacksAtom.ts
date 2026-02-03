@@ -7,6 +7,7 @@
 
 import type {DiffSummary} from '../types';
 
+import {PullRequestState} from 'isl-server/src/github/generated/graphql';
 import {atom} from 'jotai';
 import {atomWithStorage} from 'jotai/utils';
 import {allDiffSummaries} from './CodeReviewInfo';
@@ -307,7 +308,7 @@ export const currentPRStackContextAtom = atom<StackNavigationContext | null>(get
           headHash: '',
           title: `PR #${entry.prNumber}`,
           isCurrent: entry.isCurrent,
-          state: 'OPEN' as const,
+          state: PullRequestState.Open,
         };
       }
       return {

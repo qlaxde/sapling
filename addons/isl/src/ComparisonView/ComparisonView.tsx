@@ -324,7 +324,7 @@ export default function ComparisonView({
       {/* Merge controls section - only shown in review mode with a PR */}
       {reviewMode.active && reviewMode.prNumber && (
         <div className="comparison-view-merge-section">
-          <MergeControls prNumber={reviewMode.prNumber} />
+          <MergeControls key={reviewMode.prNumber} prNumber={reviewMode.prNumber} />
         </div>
       )}
       {/* Review mode toolbar with pending comments badge and PR-level comment button */}

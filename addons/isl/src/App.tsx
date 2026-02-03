@@ -23,6 +23,7 @@ import {Drawers} from './Drawers';
 import {EmptyState} from './EmptyState';
 import {useCommand} from './ISLShortcuts';
 import {PRDashboard} from './PRDashboard';
+import {Confetti} from './Confetti';
 import {Internal} from './Internal';
 import {TopBar} from './TopBar';
 import {TopLevelAlerts} from './TopLevelAlert';
@@ -122,6 +123,7 @@ function ISLDrawers() {
       errorBoundary={ErrorBoundary}>
       <MainContent />
       <CommandHistoryAndProgress />
+      <Confetti />
     </Drawers>
   );
 }

@@ -53,3 +53,16 @@ export function exitReviewMode(): void {
   });
   dismissComparison();
 }
+
+/**
+ * Navigate to a specific PR within review mode.
+ * Used for stack navigation and auto-advance after merge.
+ */
+export function navigateToPRInStack(prNumber: string, headHash: string): void {
+  writeAtom(reviewModeAtom, prev => ({
+    ...prev,
+    prNumber,
+    prHeadHash: headHash,
+  }));
+  showComparison({type: ComparisonType.Committed, hash: headHash});
+}
