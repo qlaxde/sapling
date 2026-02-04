@@ -111,6 +111,26 @@ export function triggerFullDiffSummariesRefresh() {
  */
 export const currentGitHubUser = atom<string | undefined>(undefined);
 
+/**
+ * Flag to indicate the next diff summaries fetch should replace existing data
+ * instead of merging. Used after closing PRs to remove stale entries.
+ */
+const shouldReplaceDiffSummaries = atom<boolean>(false);
+
+/**
+ * Trigger a full refresh of diff summaries that replaces existing data.
+ * Use this after operations that close/delete PRs to ensure they disappear from the UI.
+ */
+export function triggerFullDiffSummariesRefresh() {
+  writeAtom(shouldReplaceDiffSummaries, true);
+  serverAPI.postMessage({type: 'fetchDiffSummaries'});
+}
+/**
+ * Current GitHub user login (username) from the authenticated user.
+ * Used to determine if a PR/stack is "external" (authored by someone else).
+ */
+export const currentGitHubUser = atom<string | undefined>(undefined);
+
 registerDisposable(
   allDiffSummaries,
   serverAPI.onMessageOfType('fetchedDiffSummaries', event => {
