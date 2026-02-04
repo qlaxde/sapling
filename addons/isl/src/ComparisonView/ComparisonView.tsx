@@ -33,12 +33,26 @@ import {useGeneratedFileStatuses} from '../GeneratedFile';
 import {T, t} from '../i18n';
 import {atomFamilyWeak, atomLoadableWithRefresh, localStorageBackedAtom} from '../jotaiUtils';
 import platform from '../platform';
+import {
+  pendingCommentsAtom,
+  CommentInput,
+  PendingCommentDisplay,
+  PendingCommentsBadge,
+} from '../reviewComments';
 import {latestHeadCommit} from '../serverAPIState';
+import {reviewModeAtom} from '../reviewMode';
+import {MergeControls} from '../reviewMode/MergeControls';
+import {useSubmitReview} from '../reviewSubmission';
+import {allDiffSummaries} from '../codeReview/CodeReviewInfo';
 import {themeState} from '../theme';
 import {GeneratedStatus} from '../types';
 import {SplitDiffView} from './SplitDiffView';
-import {currentComparisonMode, reviewedFilesAtom, reviewedFileKey} from './atoms';
+import {currentComparisonMode, reviewedFilesAtom, reviewedFileKey, reviewedFileKeyForPR} from './atoms';
 import {parsePatchAndFilter, sortFilesByType} from './utils';
+import {SyncPRButton} from './SyncPRButton';
+import {SyncProgress} from './SyncProgress';
+import {currentPRStackContextAtom} from '../codeReview/PRStacksAtom';
+import {enterReviewMode} from '../reviewMode';
 
 import './ComparisonView.css';
 
@@ -59,6 +73,56 @@ const currentComparisonData = atomFamilyWeak((comparison: Comparison) =>
     return mapResult(event.data.diff, parsePatchAndFilter);
   }),
 );
+
+/**
+ * Horizontal bar showing all PRs in a stack for navigation.
+ * Only renders when in review mode with a multi-PR stack.
+ */
+function StackNavigationBar() {
+  const stackContext = useAtomValue(currentPRStackContextAtom);
+
+  // Don't render if not in review mode or single PR
+  if (!stackContext || stackContext.isSinglePr) {
+    return null;
+  }
+
+  const handleNavigateToPR = (prNumber: number, headHash: string) => {
+    // Skip navigation if headHash is empty (PR not in summaries)
+    if (!headHash) {
+      return;
+    }
+    enterReviewMode(String(prNumber), headHash);
+  };
+
+  return (
+    <div className="stack-navigation-bar">
+      <span className="stack-label">
+        <T>Stack</T>
+      </span>
+      <div className="stack-pr-pills">
+        {stackContext.entries.map((entry, idx) => (
+          <Tooltip
+            key={entry.prNumber}
+            title={entry.title}
+            delayMs={500}
+          >
+            <Button
+              className={`stack-pr-pill ${entry.isCurrent ? 'stack-pr-current' : ''} ${entry.state === 'MERGED' ? 'stack-pr-merged' : ''}`}
+              onClick={() => handleNavigateToPR(entry.prNumber, entry.headHash)}
+              disabled={entry.isCurrent || !entry.headHash}
+            >
+              #{entry.prNumber}
+              {entry.state === 'MERGED' && <Icon icon="check" />}
+            </Button>
+          </Tooltip>
+        ))}
+      </div>
+      <span className="stack-position">
+        {stackContext.currentIndex + 1} / {stackContext.stackSize}
+      </span>
+    </div>
+  );
+}
 
 type LineRangeKey = string;
 export function keyForLineRange(param: {path: string; comparison: Comparison}): LineRangeKey {
@@ -96,6 +160,20 @@ export default function ComparisonView({
     data,
   });
 
+  // File navigation state for review mode
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const reviewMode = useAtomValue(reviewModeAtom);
+
+  // State for PR-level comment input
+  const [showPrComment, setShowPrComment] = useState(false);
+
+  // Get list of file paths for navigation
+  const filePaths = useMemo(
+    () =>
+      data?.value?.map(file => file.newFileName ?? file.oldFileName ?? '').filter(Boolean) ?? [],
+    [data?.value],
+  );
+
   // Refs for scrolling to specific files
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const setFileRef = useCallback((path: string, element: HTMLDivElement | null) => {
@@ -105,6 +183,38 @@ export default function ComparisonView({
       fileRefs.current.delete(path);
     }
   }, []);
+
+  const handleNextFile = useCallback(() => {
+    if (currentFileIndex < filePaths.length - 1) {
+      const nextIndex = currentFileIndex + 1;
+      setCurrentFileIndex(nextIndex);
+      const path = filePaths[nextIndex];
+      const element = fileRefs.current.get(path);
+      if (element) {
+        element.scrollIntoView({behavior: 'smooth', block: 'start'});
+        // Expand if collapsed
+        if (collapsedFiles.get(path)) {
+          setCollapsedFile(path, false);
+        }
+      }
+    }
+  }, [currentFileIndex, filePaths, collapsedFiles, setCollapsedFile]);
+
+  const handlePrevFile = useCallback(() => {
+    if (currentFileIndex > 0) {
+      const prevIndex = currentFileIndex - 1;
+      setCurrentFileIndex(prevIndex);
+      const path = filePaths[prevIndex];
+      const element = fileRefs.current.get(path);
+      if (element) {
+        element.scrollIntoView({behavior: 'smooth', block: 'start'});
+        // Expand if collapsed
+        if (collapsedFiles.get(path)) {
+          setCollapsedFile(path, false);
+        }
+      }
+    }
+  }, [currentFileIndex, filePaths, collapsedFiles, setCollapsedFile]);
 
   // Scroll to file when scrollToFile is set and data is loaded
   useEffect(() => {
@@ -204,7 +314,54 @@ export default function ComparisonView({
         collapsedFiles={collapsedFiles}
         setCollapsedFile={setCollapsedFile}
         dismiss={dismiss}
+        currentFileIndex={currentFileIndex}
+        totalFiles={filePaths.length}
+        onPrevFile={handlePrevFile}
+        onNextFile={handleNextFile}
+        showNavigation={reviewMode.active && filePaths.length > 1}
       />
+      <StackNavigationBar />
+      {/* Merge controls section - only shown in review mode with a PR */}
+      {reviewMode.active && reviewMode.prNumber && (
+        <div className="comparison-view-merge-section">
+          <MergeControls key={reviewMode.prNumber} prNumber={reviewMode.prNumber} />
+        </div>
+      )}
+      {/* Review mode toolbar with pending comments badge and PR-level comment button */}
+      {reviewMode.active && reviewMode.prNumber && (
+        <div className="review-mode-header">
+          <PendingCommentsBadge prNumber={reviewMode.prNumber} />
+          <Button icon onClick={() => setShowPrComment(true)}>
+            <Icon icon="comment" slot="start" />
+            <T>Add comment</T>
+          </Button>
+          {reviewMode.prHeadHash && (
+            <SyncPRButton
+              prNumber={reviewMode.prNumber}
+              headHash={reviewMode.prHeadHash}
+            />
+          )}
+          <SyncProgress prNumber={reviewMode.prNumber} />
+          <span className="pending-info">
+            <T>Comments will be submitted with your review</T>
+          </span>
+        </div>
+      )}
+      {/* PR-level comment input */}
+      {reviewMode.active && reviewMode.prNumber && showPrComment && (
+        <div className="pr-level-comments">
+          <div className="pr-level-comments-header">
+            <span className="pr-level-comments-title">
+              <T>Review comment</T>
+            </span>
+          </div>
+          <CommentInput
+            prNumber={reviewMode.prNumber}
+            type="pr"
+            onCancel={() => setShowPrComment(false)}
+          />
+        </div>
+      )}
       <div className="comparison-view-details">{content}</div>
     </div>
   );
@@ -220,11 +377,21 @@ function ComparisonViewHeader({
   collapsedFiles,
   setCollapsedFile,
   dismiss,
+  currentFileIndex,
+  totalFiles,
+  onPrevFile,
+  onNextFile,
+  showNavigation,
 }: {
   comparison: Comparison;
   collapsedFiles: Map<string, boolean>;
   setCollapsedFile: (path: string, collapsed: boolean) => unknown;
   dismiss?: () => void;
+  currentFileIndex?: number;
+  totalFiles?: number;
+  onPrevFile?: () => void;
+  onNextFile?: () => void;
+  showNavigation?: boolean;
 }) {
   const setComparisonMode = useSetAtom(currentComparisonMode);
   const [compared, reloadComparison] = useAtom(currentComparisonData(comparison));
@@ -241,8 +408,27 @@ function ComparisonViewHeader({
     ) === true;
   const isLoading = compared.state === 'loading';
 
+  // Review mode: Get nodeId from diff summaries for Submit Review button
+  const reviewMode = useAtomValue(reviewModeAtom);
+  const allDiffs = useAtomValue(allDiffSummaries);
+
+  // Get nodeId from diff summaries when in review mode
+  const nodeId = useMemo(() => {
+    if (!reviewMode.active || !reviewMode.prNumber) return undefined;
+    const summaries = allDiffs.value;
+    if (!summaries) return undefined;
+    const summary = summaries.get(reviewMode.prNumber);
+    if (summary?.type !== 'github') return undefined;
+    return summary.nodeId;
+  }, [reviewMode.active, reviewMode.prNumber, allDiffs]);
+
+  const {submitReview, canSubmit, pendingCommentCount} = useSubmitReview(nodeId);
+
   return (
     <>
+      <div style={{background: 'magenta', color: 'white', padding: '4px 8px', fontWeight: 'bold'}}>
+        LOCAL DEV BUILD v2 - ComparisonView
+      </div>
       <div className="comparison-view-header">
         <span className="comparison-view-header-group">
           <Dropdown
@@ -283,6 +469,40 @@ function ComparisonViewHeader({
               <Icon icon="refresh" data-testid="comparison-refresh-button" />
             </Button>
           </Tooltip>
+          {showNavigation && totalFiles != null && totalFiles > 0 && (
+            <span className="comparison-view-file-navigation">
+              <Button
+                icon
+                onClick={onPrevFile}
+                disabled={currentFileIndex === 0}
+                data-testid="prev-file-button">
+                <Icon icon="arrow-up" />
+              </Button>
+              <span className="file-nav-indicator">
+                {(currentFileIndex ?? 0) + 1} / {totalFiles}
+              </span>
+              <Button
+                icon
+                onClick={onNextFile}
+                disabled={currentFileIndex === (totalFiles ?? 1) - 1}
+                data-testid="next-file-button">
+                <Icon icon="arrow-down" />
+              </Button>
+            </span>
+          )}
+          {reviewMode.active && (
+            <Button
+              kind="primary"
+              onClick={submitReview}
+              disabled={!canSubmit}
+              data-testid="submit-review-button">
+              <Icon icon="check" slot="start" />
+              <T>Submit Review</T>
+              {pendingCommentCount > 0 && (
+                <span className="pending-badge">{pendingCommentCount}</span>
+              )}
+            </Button>
+          )}
           <Button
             onClick={() => {
               for (const file of data?.value ?? []) {
@@ -428,6 +648,11 @@ function useComparisonDisplayMode(): ComparisonDisplayMode {
   return mode;
 }
 
+type ActiveCommentLine = {
+  line: number;
+  side: 'LEFT' | 'RIGHT';
+} | null;
+
 function ComparisonViewFile({
   diff,
   comparison,
@@ -446,7 +671,31 @@ function ComparisonViewFile({
   setRef?: (path: string, element: HTMLDivElement | null) => void;
 }) {
   const path = diff.newFileName ?? diff.oldFileName ?? '';
-  const reviewKey = reviewedFileKey(comparison, path);
+  const reviewMode = useAtomValue(reviewModeAtom);
+
+  // State for active comment input in review mode
+  const [activeCommentLine, setActiveCommentLine] = useState<ActiveCommentLine>(null);
+  // State for file-level comment input
+  const [showFileComment, setShowFileComment] = useState(false);
+
+  // Get pending comments for the current PR when in review mode
+  const pendingComments = useAtomValue(
+    pendingCommentsAtom(reviewMode.prNumber ?? ''),
+  );
+
+  // Filter pending comments for the current file
+  const filePendingComments = useMemo(() => {
+    return pendingComments.filter(comment => comment.path === path);
+  }, [pendingComments, path]);
+
+  // Use PR-aware key when in review mode to enable reset on PR updates
+  const reviewKey = useMemo(() => {
+    if (reviewMode.active && reviewMode.prNumber != null && reviewMode.prHeadHash != null) {
+      return reviewedFileKeyForPR(Number(reviewMode.prNumber), reviewMode.prHeadHash, path);
+    }
+    return reviewedFileKey(comparison, path);
+  }, [reviewMode.active, reviewMode.prNumber, reviewMode.prHeadHash, path, comparison]);
+
   const [reviewed, setReviewed] = useAtom(reviewedFilesAtom(reviewKey));
 
   // Reviewed files are always collapsed. To expand, uncheck the review first.
@@ -455,6 +704,26 @@ function ComparisonViewFile({
   const handleToggleReviewed = useCallback(() => {
     setReviewed(prev => !prev);
   }, [setReviewed]);
+
+  // Comment click handler - only active in review mode
+  const onCommentClick = useCallback(
+    (lineNumber: number, side: 'LEFT' | 'RIGHT', _path: string) => {
+      if (reviewMode.active) {
+        setActiveCommentLine({line: lineNumber, side});
+      }
+    },
+    [reviewMode.active],
+  );
+
+  // File comment click handler - only active in review mode
+  const onFileCommentClick = useCallback(
+    (_path: string) => {
+      if (reviewMode.active) {
+        setShowFileComment(true);
+      }
+    },
+    [reviewMode.active],
+  );
 
   const context: Context = {
     id: {path, comparison},
@@ -500,6 +769,10 @@ function ComparisonViewFile({
     display: displayMode,
     reviewed,
     onToggleReviewed: handleToggleReviewed,
+    // Wire up comment click handler when in review mode
+    onCommentClick: reviewMode.active ? onCommentClick : undefined,
+    // Wire up file comment click handler when in review mode
+    onFileCommentClick: reviewMode.active ? onFileCommentClick : undefined,
   };
   return (
     <div
@@ -508,6 +781,42 @@ function ComparisonViewFile({
       ref={element => setRef?.(path, element)}>
       <ErrorBoundary>
         <SplitDiffView ctx={context} patch={diff} path={path} generatedStatus={generatedStatus} />
+        {/* Inline comment input when a line is active */}
+        {reviewMode.active && activeCommentLine != null && (
+          <div className="inline-comment-input-container">
+            <CommentInput
+              prNumber={reviewMode.prNumber!}
+              type="inline"
+              path={path}
+              line={activeCommentLine.line}
+              side={activeCommentLine.side}
+              onCancel={() => setActiveCommentLine(null)}
+            />
+          </div>
+        )}
+        {/* File-level comment input */}
+        {reviewMode.active && showFileComment && (
+          <div className="inline-comment-input-container">
+            <CommentInput
+              prNumber={reviewMode.prNumber!}
+              type="file"
+              path={path}
+              onCancel={() => setShowFileComment(false)}
+            />
+          </div>
+        )}
+        {/* Display pending comments for this file */}
+        {reviewMode.active && filePendingComments.length > 0 && (
+          <div className="file-pending-comments">
+            {filePendingComments.map(comment => (
+              <PendingCommentDisplay
+                key={comment.id}
+                comment={comment}
+                prNumber={reviewMode.prNumber!}
+              />
+            ))}
+          </div>
+        )}
       </ErrorBoundary>
     </div>
   );
