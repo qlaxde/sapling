@@ -9,6 +9,7 @@ import type {
   CICheckRun,
   ClientToServerMessage,
   CodeReviewSystem,
+  CommandArg,
   DiffComment,
   DiffId,
   DiffSignalSummary,
@@ -18,6 +19,7 @@ import type {
   MergeableState,
   MergeStateStatus,
   Notification,
+  OperationCommandProgressReporter,
   PullRequestReviewEvent,
   Result,
   ServerToClientMessage,
@@ -149,8 +151,9 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     const dateFilter = thirtyDaysAgo.toISOString().split('T')[0];
 
     const variables = {
-      // Fetch all open PRs in the repo updated in the last 30 days
-      searchQuery: `repo:${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo} is:pr is:open updated:>=${dateFilter}`,
+      // Fetch all PRs (open, merged, closed) updated in the last 30 days
+      // This allows "hide merged" filtering to work properly
+      searchQuery: `repo:${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo} is:pr updated:>=${dateFilter}`,
       // Reduced from 50 to avoid GitHub's 500k node limit (numToFetch × 100 commits × 100 contexts)
       numToFetch: 20,
     };
@@ -480,6 +483,63 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
   public dispose() {
     this.diffSummaries.removeAllListeners();
     this.triggerDiffSummariesFetch.dispose();
+  }
+
+  /**
+   * Run external commands via `gh` CLI.
+   * Used for operations like `gh pr merge`, `gh pr close`, etc.
+   */
+  public async runExternalCommand(
+    cwd: string,
+    args: CommandArg[],
+    onProgress: OperationCommandProgressReporter,
+    _signal: AbortSignal,
+  ): Promise<void> {
+    const {ejeca} = await import('shared/ejeca');
+    const {Internal} = await import('../Internal');
+
+    // Convert CommandArg[] to string[] (filter out non-string args for gh commands)
+    const stringArgs = args.filter((arg): arg is string => typeof arg === 'string');
+
+    // Use gh CLI with the repo's hostname
+    const ghPath = Internal.ghPath ?? 'gh';
+    const hostname = this.codeReviewSystem.hostname;
+
+    // Add hostname for GitHub Enterprise
+    const ghArgs =
+      hostname !== 'github.com'
+        ? ['--hostname', hostname, ...stringArgs]
+        : stringArgs;
+
+    this.logger.info('running gh command:', ghPath, ghArgs.join(' '));
+    onProgress('spawn');
+
+    try {
+      const result = await ejeca(ghPath, ghArgs, {
+        cwd,
+        env: {
+          ...process.env,
+          // Set GH_REPO to ensure gh knows which repo to operate on
+          GH_REPO: `${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo}`,
+        },
+      });
+
+      if (result.stdout) {
+        onProgress('stdout', result.stdout);
+      }
+      if (result.stderr) {
+        onProgress('stderr', result.stderr);
+      }
+    } catch (error) {
+      const err = error as Error & {stderr?: string; stdout?: string};
+      if (err.stderr) {
+        onProgress('stderr', err.stderr);
+      }
+      if (err.stdout) {
+        onProgress('stdout', err.stdout);
+      }
+      throw error;
+    }
   }
 
   public getSummaryName(): string {
