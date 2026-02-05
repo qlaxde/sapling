@@ -43,6 +43,7 @@ import type {
 import {TypedEventEmitter} from 'shared/TypedEventEmitter';
 import {debounce} from 'shared/debounce';
 import {notEmpty} from 'shared/utils';
+import {DEFAULT_DAYS_OF_COMMITS_TO_LOAD} from '../constants';
 import {
   MergeQueueSupportQuery,
   PullRequestCommentsQuery,
@@ -106,7 +107,7 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
   private diffSummaries = new TypedEventEmitter<'data', DiffSummariesData>();
   private hasMergeQueueSupport: Promise<boolean> | null = null;
   /** Time range in days for filtering PRs. undefined means "all time". */
-  private timeRangeDays: number | undefined = 7;
+  private timeRangeDays: number | undefined = DEFAULT_DAYS_OF_COMMITS_TO_LOAD;
 
   setTimeRange(days: number | undefined): void {
     this.timeRangeDays = days;
@@ -148,44 +149,83 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     return this.hasMergeQueueSupport;
   }
 
-  private fetchYourPullRequestsGraphQL(
+  private async fetchYourPullRequestsGraphQL(
     includeMergeQueue: boolean,
   ): Promise<YourPullRequestsQueryData | undefined> {
-    // Build search query with optional date filter
-    let searchQuery = `repo:${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo} is:pr`;
+    const repo = `repo:${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo}`;
 
+    // Query 1: Always fetch ALL open PRs (they're most important, regardless of update time)
+    const openQuery = `${repo} is:pr is:open sort:updated-desc`;
+    this.logger.info(`GitHub search query (open): "${openQuery}"`);
+
+    const openVariables = {
+      searchQuery: openQuery,
+      numToFetch: 20, // Fetch up to 20 open PRs
+    };
+
+    // Query 2: Fetch recently updated PRs (includes closed/merged within time range)
+    let recentQuery = `${repo} is:pr sort:updated-desc`;
     if (this.timeRangeDays != null) {
       const dateAgo = new Date();
       dateAgo.setDate(dateAgo.getDate() - this.timeRangeDays);
       const dateFilter = dateAgo.toISOString().split('T')[0];
-      searchQuery += ` updated:>=${dateFilter}`;
+      recentQuery += ` updated:>=${dateFilter}`;
+    }
+    this.logger.info(`GitHub search query (recent): "${recentQuery}"`);
+
+    const recentVariables = {
+      searchQuery: recentQuery,
+      numToFetch: 15, // Fetch 15 recent PRs (open + closed/merged)
+    };
+
+    // Execute both queries
+    const queryFn = includeMergeQueue
+      ? <T>(vars: YourPullRequestsQueryVariables) =>
+          this.query<YourPullRequestsQueryData, YourPullRequestsQueryVariables>(YourPullRequestsQuery, vars as T)
+      : <T>(vars: YourPullRequestsWithoutMergeQueueQueryVariables) =>
+          this.query<YourPullRequestsWithoutMergeQueueQueryData, YourPullRequestsWithoutMergeQueueQueryVariables>(
+            YourPullRequestsWithoutMergeQueueQuery,
+            vars as T,
+          );
+
+    const [openResult, recentResult] = await Promise.all([
+      queryFn(openVariables as any),
+      queryFn(recentVariables as any),
+    ]);
+
+    // Merge results (open PRs take priority, dedupe by PR number)
+    const mergedNodes: typeof openResult.search.nodes = [];
+    const seenNumbers = new Set<number>();
+
+    // Add open PRs first
+    for (const node of openResult?.search.nodes ?? []) {
+      if (node?.__typename === 'PullRequest' && !seenNumbers.has(node.number)) {
+        seenNumbers.add(node.number);
+        mergedNodes.push(node);
+      }
     }
 
-    const variables = {
-      // Fetch all PRs (open, merged, closed) within the selected time range
-      // This allows "hide merged" filtering to work properly
-      searchQuery,
-      // Reduced from 50 to avoid GitHub's 500k node limit (numToFetch × 100 commits × 100 contexts)
-      numToFetch: 20,
-    };
-    if (includeMergeQueue) {
-      return this.query<YourPullRequestsQueryData, YourPullRequestsQueryVariables>(
-        YourPullRequestsQuery,
-        variables,
-      );
-    } else {
-      return this.query<
-        YourPullRequestsWithoutMergeQueueQueryData,
-        YourPullRequestsWithoutMergeQueueQueryVariables
-      >(YourPullRequestsWithoutMergeQueueQuery, variables);
+    // Add recent PRs (deduped)
+    for (const node of recentResult?.search.nodes ?? []) {
+      if (node?.__typename === 'PullRequest' && !seenNumbers.has(node.number)) {
+        seenNumbers.add(node.number);
+        mergedNodes.push(node);
+      }
     }
+
+    this.logger.info(`Merged ${mergedNodes.length} PRs (${openResult?.search.nodes?.length ?? 0} open + ${recentResult?.search.nodes?.length ?? 0} recent, deduped)`);
+
+    return {
+      viewer: openResult?.viewer ?? recentResult?.viewer,
+      search: {nodes: mergedNodes},
+    } as YourPullRequestsQueryData;
   }
 
   triggerDiffSummariesFetch = debounce(
     async () => {
       try {
         const hasMergeQueueSupport = await this.detectMergeQueueSupport();
-        this.logger.info('fetching github PR summaries');
+        this.logger.info(`fetching github PR summaries (timeRange: ${this.timeRangeDays ?? 'all'} days)`);
         const allSummaries = await this.fetchYourPullRequestsGraphQL(hasMergeQueueSupport);
         if (allSummaries?.search.nodes == null) {
           this.diffSummaries.emit('data', {summaries: new Map()});
@@ -194,12 +234,14 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
         const currentUser = allSummaries.viewer?.login;
 
         const map = new Map<DiffId, GitHubDiffSummary>();
+        let skippedCount = 0;
         for (const summary of allSummaries.search.nodes) {
           if (summary != null && summary.__typename === 'PullRequest') {
             const id = String(summary.number);
             const commitMessage = summary.body.slice(summary.title.length + 1);
             if (summary.baseRef?.target == null || summary.headRef?.target == null) {
-              this.logger.warn(`PR #${id} is missing base or head ref, skipping.`);
+              this.logger.warn(`PR #${id} (state: ${summary.state}) is missing base or head ref, skipping.`);
+              skippedCount++;
               continue;
             }
             // Parse stack info from the PR body (Sapling footer format)
@@ -240,7 +282,19 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
             });
           }
         }
-        this.logger.info(`fetched ${map.size} github PR summaries`);
+        // Log state breakdown for debugging
+        const stateBreakdown = {
+          OPEN: 0,
+          CLOSED: 0,
+          MERGED: 0,
+          DRAFT: 0,
+          MERGE_QUEUED: 0,
+        };
+        for (const [, pr] of map) {
+          stateBreakdown[pr.state as keyof typeof stateBreakdown] =
+            (stateBreakdown[pr.state as keyof typeof stateBreakdown] || 0) + 1;
+        }
+        this.logger.info(`fetched ${map.size} github PR summaries (${skippedCount} skipped due to missing refs): ${JSON.stringify(stateBreakdown)}`);
         this.diffSummaries.emit('data', {summaries: map, currentUser});
       } catch (error) {
         this.logger.info('error fetching github PR summaries: ', error);
