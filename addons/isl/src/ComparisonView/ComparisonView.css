@@ -410,7 +410,8 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+  /* Transparent - inherits glassmorphism from parent sticky header */
+  background: transparent;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
@@ -497,7 +498,8 @@
   gap: 8px;
   padding: 14px 16px 16px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  background: var(--graphite-bg);
+  /* Transparent - inherits glassmorphism from parent sticky header */
+  background: transparent;
   /* Fade in animation */
   animation: fadeInSlide 0.2s ease-out;
 }
