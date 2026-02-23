@@ -37,15 +37,18 @@ import {writeAtom} from './jotaiUtils';
 import {ClosePROperation} from './operations/ClosePROperation';
 import {GotoOperation} from './operations/GotoOperation';
 import {PullOperation} from './operations/PullOperation';
+import {PullRevOperation} from './operations/PullRevOperation';
 import {WorktreeAddOperation} from './operations/WorktreeAddOperation';
 import {inlineProgressByHash, useRunOperation} from './operationsState';
+import platform from './platform';
 import {dagWithPreviews} from './previews';
 import {enterReviewMode} from './reviewMode';
 import {selectedCommits} from './selection';
 import {repositoryInfo, selectedTimeRangeAtom, setTimeRange} from './serverAPIState';
 import {showToast} from './toast';
-import {succeedableRevset} from './types';
-import {worktreesForCommit} from './worktrees';
+import {exactRevset, succeedableRevset} from './types';
+import {showWorktreeOpenInIDEModal} from './WorktreeIDEModal';
+import {worktreesAtom, worktreesForCommit} from './worktrees';
 
 import './PRDashboard.css';
 
@@ -134,6 +137,8 @@ function useScrollToPROnSelection() {
 function MainBranchSection({}: {isScrolled?: boolean}) {
   const runOperation = useRunOperation();
   const dag = useAtomValue(dagWithPreviews);
+  const repoInfo = useAtomValue(repositoryInfo);
+  const worktrees = useAtomValue(worktreesAtom);
 
   // Find main/master bookmark in the dag
   const mainCommit = dag.resolve('main') ?? dag.resolve('master');
@@ -150,6 +155,11 @@ function MainBranchSection({}: {isScrolled?: boolean}) {
   const currentCommit = dag.resolve('.');
   const isOnMain = currentCommit?.hash === mainCommit?.hash;
 
+  // Check if we're in a secondary worktree (not the main worktree)
+  const mainWorktree = worktrees.find(wt => wt.isMain);
+  const isInMainWorktree = mainWorktree?.path === repoInfo?.repoRoot;
+  const isInSecondaryWorktree = mainWorktree != null && !isInMainWorktree;
+
   // Get inline progress for feedback
   const inlineProgress = useAtomValue(inlineProgressByHash(mainCommit?.hash ?? ''));
 
@@ -159,6 +169,17 @@ function MainBranchSection({}: {isScrolled?: boolean}) {
   const isBehind = remoteMain && mainCommit && remoteMain.hash !== mainCommit.hash;
 
   const handleGoToMain = useCallback(async () => {
+    if (isInSecondaryWorktree && mainWorktree) {
+      // Switch ISL to the main worktree first
+      serverAPI.postMessage({type: 'changeCwd', cwd: mainWorktree.path});
+      serverAPI.cwdChanged();
+      if (platform.platformName !== 'vscode') {
+        showWorktreeOpenInIDEModal(mainWorktree.path, mainWorktree.name);
+      }
+      // Pull will happen after ISL reconnects to the main worktree
+      return;
+    }
+
     if (isOnMain && !isBehind) {
       return;
     }
@@ -166,13 +187,27 @@ function MainBranchSection({}: {isScrolled?: boolean}) {
     // Pull first to get latest, then goto
     await runOperation(new PullOperation());
     runOperation(new GotoOperation(succeedableRevset(remoteName)));
-  }, [isOnMain, isBehind, runOperation, remoteName]);
+  }, [isOnMain, isBehind, isInSecondaryWorktree, mainWorktree, runOperation, remoteName]);
 
-  const syncStatusText = isBehind ? 'Updates available' : isOnMain ? 'You are here' : 'Up to date';
+  const syncStatusText = isInSecondaryWorktree
+    ? 'In worktree'
+    : isBehind
+      ? 'Updates available'
+      : isOnMain
+        ? 'You are here'
+        : 'Up to date';
 
-  const statusClass = isBehind
+  const statusClass = isBehind || isInSecondaryWorktree
     ? 'main-branch-status main-branch-status-behind'
     : 'main-branch-status';
+
+  const tooltipText = isInSecondaryWorktree
+    ? 'Switch back to main worktree'
+    : isOnMain && !isBehind
+      ? 'Already on main'
+      : 'Pull latest and checkout main';
+
+  const isDisabled = !isInSecondaryWorktree && isOnMain && !isBehind;
 
   return (
     <div className="main-branch-section">
@@ -181,11 +216,11 @@ function MainBranchSection({}: {isScrolled?: boolean}) {
         <span className="main-branch-name">{remoteName.replace('origin/', '')}</span>
         <span className={statusClass}>{syncStatusText}</span>
       </div>
-      <Tooltip title={isOnMain && !isBehind ? 'Already on main' : 'Pull latest and checkout main'}>
+      <Tooltip title={tooltipText}>
         <Button
           className="main-branch-goto-button"
           onClick={handleGoToMain}
-          disabled={(isOnMain && !isBehind) || inlineProgress != null}>
+          disabled={isDisabled || inlineProgress != null}>
           {inlineProgress ? <Icon icon="loading" /> : <Icon icon="arrow-down" />}
           <T>Go to main</T>
         </Button>
@@ -475,9 +510,18 @@ function StackCard({
       if (!topHeadHash || isCurrentStack) {
         return;
       }
+      // If commit is checked out in another worktree, switch to it instead of goto
+      if (existingWorktree && !isInExistingWorktree) {
+        serverAPI.postMessage({type: 'changeCwd', cwd: existingWorktree.path});
+        serverAPI.cwdChanged();
+        if (platform.platformName !== 'vscode') {
+          showWorktreeOpenInIDEModal(existingWorktree.path, existingWorktree.name);
+        }
+        return;
+      }
       runOperation(new GotoOperation(succeedableRevset(topHeadHash)));
     },
-    [topHeadHash, isCurrentStack, runOperation],
+    [topHeadHash, isCurrentStack, existingWorktree, isInExistingWorktree, runOperation],
   );
 
   const toggleExpanded = () => {
@@ -574,10 +618,10 @@ function StackCard({
         )}
 
         <div className="stack-card-actions">
-          {isExternal &&
+          {/* Show "Switch to Worktree" for ANY stack checked out in another worktree */}
+          {existingWorktree &&
             topHeadHash &&
-            !isInExistingWorktree &&
-            (existingWorktree ? (
+            !isInExistingWorktree && (
               <Tooltip title="Switch ISL to the existing worktree for this stack">
                 <Button
                   className="stack-card-worktree-button"
@@ -588,24 +632,34 @@ function StackCard({
                       cwd: existingWorktree.path,
                     });
                     serverAPI.cwdChanged();
+                    if (platform.platformName !== 'vscode') {
+                      showWorktreeOpenInIDEModal(existingWorktree.path, existingWorktree.name);
+                    }
                   }}>
                   <Icon icon="go-to-file" />
                   <T>Switch to Worktree</T>
                 </Button>
               </Tooltip>
-            ) : (
+            )}
+          {/* Show "Open in Worktree" only for external stacks without an existing worktree */}
+          {isExternal &&
+            topHeadHash &&
+            !isInExistingWorktree &&
+            !existingWorktree && (
               <Tooltip title="Open this stack in a new worktree">
                 <Button
                   className="stack-card-worktree-button"
-                  onClick={(e: React.MouseEvent) => {
+                  onClick={async (e: React.MouseEvent) => {
                     e.stopPropagation();
+                    // Pull the commit first so it exists locally, then create worktree
+                    await runOperation(new PullRevOperation(exactRevset(topHeadHash)));
                     runOperation(new WorktreeAddOperation(topHeadHash));
                   }}>
                   <Icon icon="folder-opened" />
                   <T>Open in Worktree</T>
                 </Button>
               </Tooltip>
-            ))}
+            )}
           {hasStaleStack && (
             <Tooltip
               title={`Close ${stalePRs.length} stale PR${stalePRs.length > 1 ? 's' : ''} — these PRs are still open but their changes were already merged via PR #${stack.mergedAbovePrNumber ?? '?'} on GitHub. This happens when merging directly on GitHub instead of through ISL.`}>
@@ -677,8 +731,15 @@ function PRRow({pr}: {pr: DiffSummary}) {
 
   const runOperation = useRunOperation();
   const dag = useAtomValue(dagWithPreviews);
+  const repoInfo = useAtomValue(repositoryInfo);
   const isCurrentCommit = headHash ? dag.resolve('.')?.hash === headHash : false;
   const inlineProgress = useAtomValue(inlineProgressByHash(headHash ?? ''));
+
+  // Check if this commit is already checked out in a worktree
+  const existingWorktrees = useAtomValue(worktreesForCommit(headHash ?? ''));
+  const existingWorktree = existingWorktrees.length > 0 ? existingWorktrees[0] : undefined;
+  const isInExistingWorktree =
+    existingWorktree != null && existingWorktree.path === repoInfo?.repoRoot;
 
   const handleCheckout = useCallback(() => {
     if (!headHash) {
@@ -689,11 +750,20 @@ function PRRow({pr}: {pr: DiffSummary}) {
     // Also explicitly scroll in case the hook doesn't fire (e.g., same selection)
     scrollToCommit(headHash);
     if (!isCurrentCommit) {
+      // If commit is checked out in another worktree, switch to it instead of goto
+      if (existingWorktree && !isInExistingWorktree) {
+        serverAPI.postMessage({type: 'changeCwd', cwd: existingWorktree.path});
+        serverAPI.cwdChanged();
+        if (platform.platformName !== 'vscode') {
+          showWorktreeOpenInIDEModal(existingWorktree.path, existingWorktree.name);
+        }
+        return;
+      }
       runOperation(new GotoOperation(succeedableRevset(headHash)));
     }
     // Scroll again after operation completes and React re-renders
     setTimeout(() => scrollToCommit(headHash), 500);
-  }, [headHash, isCurrentCommit, runOperation]);
+  }, [headHash, isCurrentCommit, existingWorktree, isInExistingWorktree, runOperation]);
 
   const handleViewChanges = (e: React.MouseEvent) => {
     e.stopPropagation();
