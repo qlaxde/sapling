@@ -17,6 +17,7 @@ import {currentPRStackContextAtom, prStacksAtom} from '../codeReview/PRStacksAto
 import {useRunOperation} from '../operationsState';
 import {MergePROperation} from '../operations/MergePROperation';
 import {ClosePROperation} from '../operations/ClosePROperation';
+import {SyncPROperation} from '../operations/SyncPROperation';
 import {
   deriveMergeability,
   formatMergeBlockReasons,
@@ -50,6 +51,7 @@ function isGitHubDiffSummary(pr: DiffSummary): pr is DiffSummary & {type: 'githu
  */
 export function MergeControls({prNumber}: MergeControlsProps) {
   const [deleteBranch, setDeleteBranch] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const runOperation = useRunOperation();
   const mergeInProgress = useAtomValue(mergeInProgressAtom);
   const stackContext = useAtomValue(currentPRStackContextAtom);
@@ -97,7 +99,10 @@ export function MergeControls({prNumber}: MergeControlsProps) {
     return prsBelow;
   }, [stackContext, prNumber, diffs.value]);
 
-  // Derive mergeability (but exclude "behind" as a blocking reason - we use rebase merge)
+  // Check if branch is behind base branch
+  const isBehind = mergeStateStatus === 'BEHIND';
+
+  // Derive mergeability
   const mergeability = pr
     ? deriveMergeability({
         signalSummary: pr.signalSummary,
@@ -108,9 +113,9 @@ export function MergeControls({prNumber}: MergeControlsProps) {
       })
     : {canMerge: false, reasons: ['Loading PR data...']};
 
-  // Filter out "behind" reason since we always use rebase merge
+  // Filter out "behind" reason from the general list since we handle it with a dedicated UI
   const filteredReasons = mergeability.reasons.filter(r => !r.includes('behind'));
-  const canMerge = filteredReasons.length === 0 && !hasConflicts;
+  const canMerge = filteredReasons.length === 0 && !hasConflicts && !isBehind;
 
   const handleMerge = useCallback(async () => {
     if (!canMerge || isMerging) {
@@ -162,6 +167,23 @@ export function MergeControls({prNumber}: MergeControlsProps) {
       writeAtom(mergeInProgressAtom, null);
     }
   }, [prNumber, deleteBranch, canMerge, isMerging, runOperation, getPRsBelowInStack]);
+
+  const handleUpdateBranch = useCallback(async () => {
+    if (isSyncing) {
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const syncOp = new SyncPROperation(prNumber);
+      await runOperation(syncOp, /* throwOnError */ true);
+      showToast(t('Branch updated successfully'), {durationMs: 3000});
+      triggerFullDiffSummariesRefresh();
+    } catch (error) {
+      showToast(t('Failed to update branch: $error', {replace: {$error: String(error)}}), {durationMs: 8000});
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [prNumber, isSyncing, runOperation]);
 
   if (!pr) {
     return (
@@ -275,6 +297,54 @@ export function MergeControls({prNumber}: MergeControlsProps) {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // If branch is behind base, show update branch button instead of merge
+  if (isBehind) {
+    return (
+      <div className="merge-controls">
+        <div className="merge-controls-row">
+          <div className="merge-controls-actions">
+            <div className="merge-strategy-group">
+              <div className="merge-sync-status merge-sync-behind">
+                <Icon icon="warning" />
+                <span><T>This branch is out of date with the base branch</T></span>
+              </div>
+              <div className="merge-strategy-row">
+                <Tooltip title={t('Update this branch by rebasing onto the base branch')} placement="top">
+                  <Button
+                    className="update-branch-btn"
+                    disabled={isSyncing}
+                    onClick={handleUpdateBranch}>
+                    {isSyncing ? (
+                      <>
+                        <Icon icon="loading" slot="start" />
+                        <T>Updating...</T>
+                      </>
+                    ) : (
+                      <>
+                        <Icon icon="sync" slot="start" />
+                        <T>Update branch</T>
+                      </>
+                    )}
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+        </div>
+        {filteredReasons.length > 0 && (
+          <div className="merge-block-reasons">
+            {filteredReasons.map((reason, i) => (
+              <div key={i} className="merge-block-reason">
+                <Icon icon="warning" size="S" />
+                {reason}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
