@@ -595,9 +595,9 @@ function StackCard({
           <span className="stack-merge-badge stack-merge-badge-merged">
             <Icon icon="check" /> Merged
           </span>
-        ) : stack.mergedCount > 0 ? (
+        ) : stack.mergedCount + stack.closedCount > 0 ? (
           <span className="stack-merge-badge stack-merge-badge-partial">
-            {stack.mergedCount}/{stack.prs.length}
+            {stack.mergedCount + stack.closedCount}/{stack.prs.length}
           </span>
         ) : null}
 
@@ -624,7 +624,7 @@ function StackCard({
             !isInExistingWorktree && (
               <Tooltip title="Switch ISL to the existing worktree for this stack">
                 <Button
-                  className="stack-card-worktree-button"
+                  icon
                   onClick={(e: React.MouseEvent) => {
                     e.stopPropagation();
                     serverAPI.postMessage({
@@ -637,7 +637,6 @@ function StackCard({
                     }
                   }}>
                   <Icon icon="go-to-file" />
-                  <T>Switch to Worktree</T>
                 </Button>
               </Tooltip>
             )}
@@ -648,7 +647,7 @@ function StackCard({
             !existingWorktree && (
               <Tooltip title="Open this stack in a new worktree">
                 <Button
-                  className="stack-card-worktree-button"
+                  icon
                   onClick={async (e: React.MouseEvent) => {
                     e.stopPropagation();
                     // Pull the commit first so it exists locally, then create worktree
@@ -656,7 +655,6 @@ function StackCard({
                     runOperation(new WorktreeAddOperation(topHeadHash));
                   }}>
                   <Icon icon="folder-opened" />
-                  <T>Open in Worktree</T>
                 </Button>
               </Tooltip>
             )}
@@ -726,8 +724,9 @@ function PRRow({pr}: {pr: DiffSummary}) {
   const reviewDecision = pr.type === 'github' ? pr.reviewDecision : undefined;
   const stateIcon = getPRStateIcon(pr.state, reviewDecision);
   const stateClass = getPRStateClass(pr.state, reviewDecision);
-  const headHash = pr.type === 'github' ? pr.head : undefined;
+  const headHash = pr.type === 'github' && pr.head !== '' ? pr.head : undefined;
   const isMerged = pr.state === 'MERGED';
+  const isClosed = pr.state === 'CLOSED';
 
   const runOperation = useRunOperation();
   const dag = useAtomValue(dagWithPreviews);
@@ -787,6 +786,8 @@ function PRRow({pr}: {pr: DiffSummary}) {
     headHash && !isCurrentCommit ? 'pr-row-clickable' : '',
     isCurrentCommit ? 'pr-row-current' : '',
     inlineProgress ? 'pr-row-loading' : '',
+    isMerged ? 'pr-row-merged' : '',
+    isClosed ? 'pr-row-closed' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -824,6 +825,12 @@ function PRRow({pr}: {pr: DiffSummary}) {
         <span className="pr-row-merged-badge">
           <Icon icon="check" size="S" />
           <T>Merged</T>
+        </span>
+      )}
+      {isClosed && (
+        <span className="pr-row-closed-badge">
+          <Icon icon="close" size="S" />
+          <T>Closed</T>
         </span>
       )}
       {headHash && (

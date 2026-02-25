@@ -19,6 +19,9 @@ import {RadioGroup} from 'isl-components/Radio';
 import {Subtle} from 'isl-components/Subtle';
 import {Tooltip} from 'isl-components/Tooltip';
 import {atom, useAtom, useAtomValue, useSetAtom} from 'jotai';
+import {CommentSidebar, CommentSidebarToggle} from '../codeReview/CommentSidebar';
+import {FileCommentSection} from '../codeReview/FileCommentSection';
+import {commentSidebarOpenAtom} from '../codeReview/CommentSidebarState';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ComparisonType,
@@ -48,7 +51,9 @@ import {latestHeadCommit} from '../serverAPIState';
 import {themeState} from '../theme';
 import {showToast} from '../toast';
 import {GeneratedStatus} from '../types';
+import {FileListOverview} from './FileListOverview';
 import {SplitDiffView} from './SplitDiffView';
+import {useLineRangeSelection} from './SplitDiffView/useLineRangeSelection';
 import {
   currentComparisonMode,
   reviewedFileKey,
@@ -562,6 +567,7 @@ export default function ComparisonView({
   // File navigation state for review mode
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const reviewMode = useAtomValue(reviewModeAtom);
+  const sidebarOpen = useAtomValue(commentSidebarOpenAtom);
 
   // State for PR-level comment input
   const [showPrComment, setShowPrComment] = useState(false);
@@ -614,6 +620,19 @@ export default function ComparisonView({
       }
     }
   }, [currentFileIndex, filePaths, collapsedFiles, setCollapsedFile]);
+
+  const handleFileListClick = useCallback(
+    (path: string) => {
+      const element = fileRefs.current.get(path);
+      if (element) {
+        element.scrollIntoView({behavior: 'smooth', block: 'start'});
+        if (collapsedFiles.get(path)) {
+          setCollapsedFile(path, false);
+        }
+      }
+    },
+    [collapsedFiles, setCollapsedFile],
+  );
 
   // Scroll to file when scrollToFile is set and data is loaded
   useEffect(() => {
@@ -707,7 +726,7 @@ export default function ComparisonView({
   }
 
   return (
-    <div data-testid="comparison-view" className="comparison-view">
+    <div data-testid="comparison-view" className={`comparison-view ${sidebarOpen && reviewMode.active ? 'comparison-view-with-sidebar' : ''}`}>
       {/* Scrollable container - holds sticky header + content */}
       <div className="comparison-view-scrollable">
         {/* Sticky header: header + stack navigation */}
@@ -720,9 +739,20 @@ export default function ComparisonView({
             onPrevFile={handlePrevFile}
             onNextFile={handleNextFile}
             showNavigation={reviewMode.active && filePaths.length > 1}
+            commentToggle={
+              reviewMode.active && reviewMode.prNumber ? (
+                <CommentSidebarToggle commentCount={0} />
+              ) : undefined
+            }
           />
           <StackNavigationBar />
         </div>
+        {reviewMode.active && data?.value && (
+          <FileListOverview
+            diffs={data.value}
+            onFileClick={handleFileListClick}
+          />
+        )}
         {/* Content area */}
         <div className="comparison-view-details">
           {content}
@@ -757,6 +787,9 @@ export default function ComparisonView({
           )}
         </div>
       </div>
+      {reviewMode.active && reviewMode.prNumber && (
+        <CommentSidebar diffId={reviewMode.prNumber} />
+      )}
     </div>
   );
 }
@@ -774,6 +807,7 @@ function ComparisonViewHeader({
   onPrevFile,
   onNextFile,
   showNavigation,
+  commentToggle,
 }: {
   comparison: Comparison;
   dismiss?: () => void;
@@ -782,6 +816,7 @@ function ComparisonViewHeader({
   onPrevFile?: () => void;
   onNextFile?: () => void;
   showNavigation?: boolean;
+  commentToggle?: React.ReactNode;
 }) {
   const setComparisonMode = useSetAtom(currentComparisonMode);
   const [compared, reloadComparison] = useAtom(currentComparisonData(comparison));
@@ -850,6 +885,7 @@ function ComparisonViewHeader({
               </Button>
             </span>
           )}
+          {commentToggle}
           <Tooltip trigger="click" component={() => <ComparisonSettingsDropdown />}>
             <Button icon>
               <Icon icon="ellipsis" />
@@ -969,11 +1005,6 @@ function useComparisonDisplayMode(): ComparisonDisplayMode {
   return mode;
 }
 
-type ActiveCommentLine = {
-  line: number;
-  side: 'LEFT' | 'RIGHT';
-} | null;
-
 function ComparisonViewFile({
   diff,
   comparison,
@@ -994,8 +1025,12 @@ function ComparisonViewFile({
   const path = diff.newFileName ?? diff.oldFileName ?? '';
   const reviewMode = useAtomValue(reviewModeAtom);
 
-  // State for active comment input in review mode
-  const [activeCommentLine, setActiveCommentLine] = useState<ActiveCommentLine>(null);
+  // State for active comment range in review mode (supports multi-line)
+  const [activeCommentRange, setActiveCommentRange] = useState<{
+    line: number;
+    endLine?: number;
+    side: 'LEFT' | 'RIGHT';
+  } | null>(null);
   // State for file-level comment input
   const [showFileComment, setShowFileComment] = useState(false);
 
@@ -1024,15 +1059,21 @@ function ComparisonViewFile({
     setReviewed(prev => !prev);
   }, [setReviewed]);
 
-  // Comment click handler - only active in review mode
-  const onCommentClick = useCallback(
-    (lineNumber: number, side: 'LEFT' | 'RIGHT', _path: string) => {
+  // Range selection handler - handles both single clicks and drag ranges
+  const handleRangeSelected = useCallback(
+    (startLine: number, endLine: number, side: 'LEFT' | 'RIGHT', _path: string) => {
       if (reviewMode.active) {
-        setActiveCommentLine({line: lineNumber, side});
+        setActiveCommentRange({
+          line: startLine,
+          endLine: startLine === endLine ? undefined : endLine,
+          side,
+        });
       }
     },
     [reviewMode.active],
   );
+
+  const {activeSelection, tableHandlers} = useLineRangeSelection(handleRangeSelected);
 
   // File comment click handler - only active in review mode
   const onFileCommentClick = useCallback(
@@ -1088,25 +1129,34 @@ function ComparisonViewFile({
     display: displayMode,
     reviewed,
     onToggleReviewed: handleToggleReviewed,
-    // Wire up comment click handler when in review mode
-    onCommentClick: reviewMode.active ? onCommentClick : undefined,
+    // Provide onCommentClick to make line numbers "commentable" (adds CSS class for drag detection).
+    // The actual comment handling is done via the range selection handlers below.
+    onCommentClick: reviewMode.active ? () => {} : undefined,
     // Wire up file comment click handler when in review mode
     onFileCommentClick: reviewMode.active ? onFileCommentClick : undefined,
+    // Wire up line range selection handlers when in review mode
+    tableMouseHandlers: reviewMode.active ? tableHandlers : undefined,
+    activeLineSelection: activeSelection ? {
+      startLine: activeSelection.startLine,
+      endLine: activeSelection.endLine,
+      side: activeSelection.side,
+    } : undefined,
   };
   return (
     <div className="comparison-view-file" key={path} ref={element => setRef?.(path, element)}>
       <ErrorBoundary>
         <SplitDiffView ctx={context} patch={diff} path={path} generatedStatus={generatedStatus} />
-        {/* Inline comment input when a line is active */}
-        {reviewMode.active && activeCommentLine != null && (
+        {/* Inline comment input when a line or range is active */}
+        {reviewMode.active && activeCommentRange != null && (
           <div className="inline-comment-input-container">
             <CommentInput
               prNumber={reviewMode.prNumber!}
               type="inline"
               path={path}
-              line={activeCommentLine.line}
-              side={activeCommentLine.side}
-              onCancel={() => setActiveCommentLine(null)}
+              line={activeCommentRange.line}
+              endLine={activeCommentRange.endLine}
+              side={activeCommentRange.side}
+              onCancel={() => setActiveCommentRange(null)}
             />
           </div>
         )}
@@ -1132,6 +1182,12 @@ function ComparisonViewFile({
               />
             ))}
           </div>
+        )}
+        {reviewMode.active && reviewMode.prNumber && (
+          <FileCommentSection
+            diffId={reviewMode.prNumber}
+            filePath={path}
+          />
         )}
       </ErrorBoundary>
     </div>

@@ -150,6 +150,8 @@ export type PullRequestReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
 export type DraftPullRequestReviewThread = {
   path: string;
   line: number;
+  /** Start line for multi-line range comments. When set, 'line' is the end line. */
+  startLine?: number;
   body: string;
   side?: 'LEFT' | 'RIGHT';
 };
@@ -1003,6 +1005,7 @@ export type LocalStorageName =
   | 'isl.first-pass-comments:'
   | 'isl.reviewed-files:'
   | 'isl.pending-comments:'
+  | 'isl.comment-sidebar-open'
   | 'isl.dismissed-notification-ids';
 
 export type ClientToServerMessage =
