@@ -30,6 +30,12 @@ export type DiffSummaries = Map<DiffId, DiffSummary>;
 export interface CodeReviewProvider {
   triggerDiffSummariesFetch(diffs: Array<DiffId>): unknown;
 
+  /** Force the next fetch to bypass cache (e.g., user-triggered refresh). */
+  forceRefresh?(): void;
+
+  /** Invalidate cached comments. Pass diffId for a specific PR, or omit to clear all. */
+  invalidateCommentCache?(diffId?: string): void;
+
   /** Set the time range for filtering PRs/diffs. undefined means "all time". */
   setTimeRange?(days: number | undefined): void;
 

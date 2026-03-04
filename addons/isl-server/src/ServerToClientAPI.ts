@@ -618,7 +618,11 @@ export default class ServerToClientAPI {
         repo.fetchSubmoduleMap();
         repo.checkForMergeConflicts();
         repo.fullRepoBranchModule?.pullSubscribedFullRepoBranches();
-        repo.codeReviewProvider?.triggerDiffSummariesFetch(repo.getAllDiffIds());
+        if (repo.codeReviewProvider?.forceRefresh != null) {
+          repo.codeReviewProvider.forceRefresh();
+        } else {
+          repo.codeReviewProvider?.triggerDiffSummariesFetch(repo.getAllDiffIds());
+        }
         repo.initialConnectionContext.tracker.track('DiffFetchSource', {
           extras: {source: 'manual_refresh'},
         });
@@ -895,6 +899,7 @@ export default class ServerToClientAPI {
         repo.codeReviewProvider
           ?.replyToThread?.(data.threadId, data.body)
           ?.then(() => {
+            repo.codeReviewProvider?.invalidateCommentCache?.();
             this.postMessage({
               type: 'graphqlReplyResult',
               threadId: data.threadId,
@@ -914,6 +919,7 @@ export default class ServerToClientAPI {
         repo.codeReviewProvider
           ?.addIssueComment?.(data.subjectId, data.body)
           ?.then(() => {
+            repo.codeReviewProvider?.invalidateCommentCache?.();
             this.postMessage({
               type: 'graphqlAddCommentResult',
               success: true,
@@ -931,6 +937,7 @@ export default class ServerToClientAPI {
         repo.codeReviewProvider
           ?.editComment?.(data.commentId, data.body)
           ?.then(() => {
+            repo.codeReviewProvider?.invalidateCommentCache?.();
             this.postMessage({
               type: 'graphqlEditCommentResult',
               commentId: data.commentId,
@@ -950,6 +957,7 @@ export default class ServerToClientAPI {
         repo.codeReviewProvider
           ?.resolveThread?.(data.threadId)
           ?.then(() => {
+            repo.codeReviewProvider?.invalidateCommentCache?.();
             this.postMessage({
               type: 'threadResolutionResult',
               threadId: data.threadId,
@@ -970,6 +978,7 @@ export default class ServerToClientAPI {
         repo.codeReviewProvider
           ?.unresolveThread?.(data.threadId)
           ?.then(() => {
+            repo.codeReviewProvider?.invalidateCommentCache?.();
             this.postMessage({
               type: 'threadResolutionResult',
               threadId: data.threadId,
