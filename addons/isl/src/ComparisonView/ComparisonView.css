@@ -724,8 +724,8 @@ a.pr-info-title:hover::after {
 .stack-navigation-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 16px;
   /* Inherits glass from parent sticky header - just add subtle separator */
   background: rgba(255, 255, 255, 0.02);
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -735,14 +735,15 @@ a.pr-info-title:hover::after {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #5c7cfa;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   background: rgba(92, 124, 250, 0.1);
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .stack-navigation-bar .stack-label .codicon {
@@ -752,8 +753,21 @@ a.pr-info-title:hover::after {
 .stack-navigation-bar .stack-pr-pills {
   display: flex;
   gap: 0;
-  flex-wrap: wrap;
   align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  /* Fade hint at edges when scrollable */
+  mask-image: linear-gradient(to right, transparent 0, black 4px, black calc(100% - 4px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 4px, black calc(100% - 4px), transparent 100%);
+  padding: 2px 0;
+}
+
+.stack-navigation-bar .stack-pr-pills::-webkit-scrollbar {
+  display: none;
 }
 
 /* Override Button component styles for stack pills */
@@ -885,6 +899,7 @@ a.pr-info-title:hover::after {
   display: inline-flex;
   align-items: center;
   gap: 0;
+  flex-shrink: 0;
 }
 
 .stack-navigation-bar .stack-arrow {
@@ -893,7 +908,7 @@ a.pr-info-title:hover::after {
   color: var(--graphite-text-secondary);
   font-size: 10px;
   opacity: 0.5;
-  margin: 0 6px;
+  margin: 0 4px;
 }
 
 .stack-navigation-bar .stack-arrow .codicon {
@@ -907,6 +922,7 @@ a.pr-info-title:hover::after {
   font-size: 10px;
   color: var(--graphite-text-secondary);
   opacity: 0.7;
+  flex-shrink: 0;
 }
 
 .stack-navigation-bar .stack-direction-hint .codicon {
@@ -925,6 +941,7 @@ a.pr-info-title:hover::after {
   color: var(--graphite-text-secondary);
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 /* ========================================
