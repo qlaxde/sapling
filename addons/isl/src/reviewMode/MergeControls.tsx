@@ -5,19 +5,22 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {DiffSummary} from '../types';
+import type {CICheckRun, DiffSummary} from '../types';
+
+import type {MergeableState, MergeStateStatus} from '../types';
 
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
 import {useAtomValue} from 'jotai';
-import {useState, useCallback} from 'react';
+import {useState, useCallback, useEffect} from 'react';
 import {diffSummary, allDiffSummaries, triggerFullDiffSummariesRefresh} from '../codeReview/CodeReviewInfo';
 import {currentPRStackContextAtom, prStacksAtom} from '../codeReview/PRStacksAtom';
 import {useRunOperation} from '../operationsState';
 import {MergePROperation} from '../operations/MergePROperation';
 import {ClosePROperation} from '../operations/ClosePROperation';
 import {SyncPROperation} from '../operations/SyncPROperation';
+import {CIStatusBadge} from './CIStatusBadge';
 import {
   deriveMergeability,
   formatMergeBlockReasons,
@@ -71,9 +74,34 @@ export function MergeControls({prNumber}: MergeControlsProps) {
   const isStaleStack = currentStack?.hasStaleAbove ?? false;
   const mergedAbovePrNumber = currentStack?.mergedAbovePrNumber;
 
-  // Check sync status - has conflicts?
-  const mergeable = pr && isGitHubDiffSummary(pr) ? pr.mergeable : undefined;
-  const mergeStateStatus = pr && isGitHubDiffSummary(pr) ? pr.mergeStateStatus : undefined;
+  // Lazy-load merge state fields (mergeable, mergeStateStatus, viewerCanMergeAsAdmin,
+  // ciChecks, autoMergeRequest) for this single PR. Too expensive to fetch in bulk.
+  const [mergeState, setMergeState] = useState<{
+    mergeable?: MergeableState;
+    mergeStateStatus?: MergeStateStatus;
+    viewerCanMergeAsAdmin?: boolean;
+    ciChecks?: CICheckRun[];
+    autoMergeRequest?: {enabledAt: string; mergeMethod: string} | null;
+    loading: boolean;
+  }>({loading: true});
+
+  useEffect(() => {
+    setMergeState({loading: true});
+    const disposable = serverAPI.onMessageOfType('fetchedPRMergeState', msg => {
+      if (msg.prNumber === prNumber) {
+        if (msg.result.error) {
+          setMergeState({loading: false});
+        } else {
+          setMergeState({...msg.result.value, loading: false});
+        }
+      }
+    });
+    serverAPI.postMessage({type: 'fetchPRMergeState', prNumber});
+    return () => disposable.dispose();
+  }, [prNumber]);
+
+  const mergeable = mergeState.mergeable;
+  const mergeStateStatus = mergeState.mergeStateStatus;
   const hasConflicts = mergeStateStatus === 'DIRTY' || mergeable === 'CONFLICTING';
 
   // Check if PR is a draft (use pr.state which is always accurate, unlike mergeStateStatus)
@@ -108,20 +136,20 @@ export function MergeControls({prNumber}: MergeControlsProps) {
   // Check if branch is behind base branch
   const isBehind = mergeStateStatus === 'BEHIND';
 
-  // Derive mergeability
+  // Derive mergeability using lazy-loaded merge state
   const mergeability = pr
     ? deriveMergeability({
         signalSummary: pr.signalSummary,
         reviewDecision: isGitHubDiffSummary(pr) ? pr.reviewDecision : undefined,
-        mergeable: isGitHubDiffSummary(pr) ? pr.mergeable : undefined,
-        mergeStateStatus: isGitHubDiffSummary(pr) ? pr.mergeStateStatus : undefined,
+        mergeable,
+        mergeStateStatus,
         state: isGitHubDiffSummary(pr) ? pr.state : undefined,
       })
     : {canMerge: false, reasons: ['Loading PR data...']};
 
   // Filter out "behind" and "draft" reasons from the general list since we handle them with dedicated UI
   const filteredReasons = mergeability.reasons.filter(r => !r.includes('behind') && !r.includes('draft'));
-  const canMerge = filteredReasons.length === 0 && !hasConflicts && !isBehind && !isDraft;
+  const canMerge = !mergeState.loading && filteredReasons.length === 0 && !hasConflicts && !isBehind && !isDraft;
 
   const handleMerge = useCallback(async () => {
     if (!canMerge || isMerging) {
@@ -219,7 +247,67 @@ export function MergeControls({prNumber}: MergeControlsProps) {
     }
   }, [prNodeId, isPublishing]);
 
-  if (!pr) {
+  const autoMergeEnabled = mergeState.autoMergeRequest != null;
+  const [isTogglingAutoMerge, setIsTogglingAutoMerge] = useState(false);
+
+  const handleEnableAutoMerge = useCallback(async () => {
+    if (isTogglingAutoMerge || !prNodeId) {
+      return;
+    }
+    setIsTogglingAutoMerge(true);
+    try {
+      serverAPI.postMessage({
+        type: 'enableAutoMerge',
+        pullRequestId: prNodeId,
+        mergeMethod: 'REBASE',
+      });
+      const response = await serverAPI.nextMessageMatching(
+        'enabledAutoMerge',
+        () => true,
+      );
+      if (response.result.error) {
+        showToast(t('Failed to enable auto-merge: $error', {replace: {$error: response.result.error.message}}), {durationMs: 8000});
+      } else {
+        showToast(t('Auto-merge enabled'), {durationMs: 3000});
+        // Re-fetch merge state to update autoMergeRequest
+        serverAPI.postMessage({type: 'fetchPRMergeState', prNumber});
+      }
+    } catch (error) {
+      showToast(t('Failed to enable auto-merge: $error', {replace: {$error: String(error)}}), {durationMs: 8000});
+    } finally {
+      setIsTogglingAutoMerge(false);
+    }
+  }, [prNodeId, prNumber, isTogglingAutoMerge]);
+
+  const handleDisableAutoMerge = useCallback(async () => {
+    if (isTogglingAutoMerge || !prNodeId) {
+      return;
+    }
+    setIsTogglingAutoMerge(true);
+    try {
+      serverAPI.postMessage({
+        type: 'disableAutoMerge',
+        pullRequestId: prNodeId,
+      });
+      const response = await serverAPI.nextMessageMatching(
+        'disabledAutoMerge',
+        () => true,
+      );
+      if (response.result.error) {
+        showToast(t('Failed to disable auto-merge: $error', {replace: {$error: response.result.error.message}}), {durationMs: 8000});
+      } else {
+        showToast(t('Auto-merge disabled'), {durationMs: 3000});
+        // Re-fetch merge state to update autoMergeRequest
+        serverAPI.postMessage({type: 'fetchPRMergeState', prNumber});
+      }
+    } catch (error) {
+      showToast(t('Failed to disable auto-merge: $error', {replace: {$error: String(error)}}), {durationMs: 8000});
+    } finally {
+      setIsTogglingAutoMerge(false);
+    }
+  }, [prNodeId, prNumber, isTogglingAutoMerge]);
+
+  if (!pr || mergeState.loading) {
     return (
       <div className="merge-controls merge-controls-loading">
         <Icon icon="loading" /> Loading...
@@ -308,27 +396,24 @@ export function MergeControls({prNumber}: MergeControlsProps) {
   if (hasConflicts) {
     return (
       <div className="merge-controls">
-        <div className="merge-controls-row">
-          <div className="merge-controls-actions">
-            <div className="merge-strategy-group">
-              <div className="merge-sync-status merge-sync-conflicts">
-                <Icon icon="warning" />
-                <span><T>Merge conflicts detected</T></span>
-              </div>
-              <div className="merge-strategy-row">
-                {prUrl && (
-                  <Tooltip title={t('Open GitHub to resolve conflicts')} placement="top">
-                    <Button
-                      className="resolve-conflicts-btn"
-                      onClick={() => window.open(prUrl, '_blank')}>
-                      <Icon icon="link-external" slot="start" />
-                      <T>Resolve on GitHub</T>
-                    </Button>
-                  </Tooltip>
-                )}
-              </div>
-            </div>
+        <div className="merge-conflicts-card">
+          <div className="merge-conflicts-card-header">
+            <Icon icon="warning" />
+            <span><T>Merge conflicts detected</T></span>
           </div>
+          <div className="merge-conflicts-card-body">
+            <T>This branch has conflicts that must be resolved before merging.</T>
+          </div>
+          {prUrl && (
+            <Tooltip title={t('Open GitHub to resolve conflicts')} placement="top">
+              <Button
+                className="resolve-conflicts-btn"
+                onClick={() => window.open(prUrl, '_blank')}>
+                <Icon icon="link-external" slot="start" />
+                <T>Resolve on GitHub</T>
+              </Button>
+            </Tooltip>
+          )}
         </div>
       </div>
     );
@@ -338,35 +423,29 @@ export function MergeControls({prNumber}: MergeControlsProps) {
   if (isDraft) {
     return (
       <div className="merge-controls">
-        <div className="merge-controls-row">
-          <div className="merge-controls-actions">
-            <div className="merge-strategy-group">
-              <div className="merge-sync-status merge-sync-draft">
-                <Icon icon="edit" />
-                <span><T>This pull request is still a draft</T></span>
-              </div>
-              <div className="merge-strategy-row">
-                <Tooltip title={t('Mark this PR as ready for review')} placement="top">
-                  <Button
-                    className="publish-pr-btn"
-                    disabled={isPublishing || !prNodeId}
-                    onClick={handlePublish}>
-                    {isPublishing ? (
-                      <>
-                        <Icon icon="loading" slot="start" />
-                        <T>Publishing...</T>
-                      </>
-                    ) : (
-                      <>
-                        <Icon icon="cloud-upload" slot="start" />
-                        <T>Ready for review</T>
-                      </>
-                    )}
-                  </Button>
-                </Tooltip>
-              </div>
-            </div>
+        <div className="merge-status-card merge-status-card-draft">
+          <div className="merge-status-card-header merge-status-draft-color">
+            <Icon icon="edit" />
+            <span><T>This pull request is still a draft</T></span>
           </div>
+          <Tooltip title={t('Mark this PR as ready for review')} placement="top">
+            <Button
+              className="publish-pr-btn"
+              disabled={isPublishing || !prNodeId}
+              onClick={handlePublish}>
+              {isPublishing ? (
+                <>
+                  <Icon icon="loading" slot="start" />
+                  <T>Publishing...</T>
+                </>
+              ) : (
+                <>
+                  <Icon icon="cloud-upload" slot="start" />
+                  <T>Ready for review</T>
+                </>
+              )}
+            </Button>
+          </Tooltip>
         </div>
       </div>
     );
@@ -376,35 +455,29 @@ export function MergeControls({prNumber}: MergeControlsProps) {
   if (isBehind) {
     return (
       <div className="merge-controls">
-        <div className="merge-controls-row">
-          <div className="merge-controls-actions">
-            <div className="merge-strategy-group">
-              <div className="merge-sync-status merge-sync-behind">
-                <Icon icon="warning" />
-                <span><T>This branch is out of date with the base branch</T></span>
-              </div>
-              <div className="merge-strategy-row">
-                <Tooltip title={t('Update this branch by rebasing onto the base branch')} placement="top">
-                  <Button
-                    className="update-branch-btn"
-                    disabled={isSyncing}
-                    onClick={handleUpdateBranch}>
-                    {isSyncing ? (
-                      <>
-                        <Icon icon="loading" slot="start" />
-                        <T>Updating...</T>
-                      </>
-                    ) : (
-                      <>
-                        <Icon icon="sync" slot="start" />
-                        <T>Update branch</T>
-                      </>
-                    )}
-                  </Button>
-                </Tooltip>
-              </div>
-            </div>
+        <div className="merge-status-card merge-status-card-behind">
+          <div className="merge-status-card-header merge-status-behind-color">
+            <Icon icon="warning" />
+            <span><T>This branch is out of date with the base branch</T></span>
           </div>
+          <Tooltip title={t('Update this branch by rebasing onto the base branch')} placement="top">
+            <Button
+              className="update-branch-btn"
+              disabled={isSyncing}
+              onClick={handleUpdateBranch}>
+              {isSyncing ? (
+                <>
+                  <Icon icon="loading" slot="start" />
+                  <T>Updating...</T>
+                </>
+              ) : (
+                <>
+                  <Icon icon="sync" slot="start" />
+                  <T>Update branch</T>
+                </>
+              )}
+            </Button>
+          </Tooltip>
         </div>
         {filteredReasons.length > 0 && (
           <div className="merge-block-reasons">
@@ -487,6 +560,57 @@ export function MergeControls({prNumber}: MergeControlsProps) {
           ))}
         </div>
       )}
+
+      {mergeState.ciChecks && mergeState.ciChecks.length > 0 && (
+        <div className="merge-ci-checks">
+          <CIStatusBadge signalSummary={pr?.signalSummary} ciChecks={mergeState.ciChecks} />
+        </div>
+      )}
+
+      {autoMergeEnabled ? (
+        <div className="merge-auto-merge-status">
+          <div className="merge-auto-merge-badge">
+            <Icon icon="rocket" />
+            <span><T>Auto-merge enabled</T></span>
+          </div>
+          <span className="merge-auto-merge-detail">
+            <T>Will merge automatically when all requirements are met</T>
+          </span>
+          <Tooltip title={t('Disable auto-merge')} placement="top">
+            <Button
+              className="auto-merge-disable-btn"
+              disabled={isTogglingAutoMerge}
+              onClick={handleDisableAutoMerge}>
+              {isTogglingAutoMerge ? (
+                <Icon icon="loading" />
+              ) : (
+                <T>Disable auto-merge</T>
+              )}
+            </Button>
+          </Tooltip>
+        </div>
+      ) : !canMerge && filteredReasons.length > 0 && prNodeId ? (
+        <div className="merge-auto-merge-offer">
+          <Tooltip title={t('Enable auto-merge to merge automatically when all checks pass and reviews are approved')} placement="top">
+            <Button
+              className="auto-merge-enable-btn"
+              disabled={isTogglingAutoMerge}
+              onClick={handleEnableAutoMerge}>
+              {isTogglingAutoMerge ? (
+                <>
+                  <Icon icon="loading" slot="start" />
+                  <T>Enabling...</T>
+                </>
+              ) : (
+                <>
+                  <Icon icon="rocket" slot="start" />
+                  <T>Enable auto-merge</T>
+                </>
+              )}
+            </Button>
+          </Tooltip>
+        </div>
+      ) : null}
     </div>
   );
 }

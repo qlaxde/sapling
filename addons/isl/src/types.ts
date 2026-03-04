@@ -1044,6 +1044,8 @@ export type ClientToServerMessage =
   | {type: 'fetchDiffSummaries'; diffIds?: Array<DiffId>}
   | {type: 'fetchDiffComments'; diffId: DiffId}
   | {type: 'graphqlReply'; threadId: string; body: string}
+  | {type: 'graphqlAddComment'; subjectId: string; body: string}
+  | {type: 'graphqlEditComment'; commentId: string; body: string}
   | {type: 'resolveThread'; threadId: string}
   | {type: 'unresolveThread'; threadId: string}
   | {
@@ -1055,6 +1057,19 @@ export type ClientToServerMessage =
     }
   | {
       type: 'publishPullRequest';
+      pullRequestId: string;
+    }
+  | {
+      type: 'fetchPRMergeState';
+      prNumber: DiffId;
+    }
+  | {
+      type: 'enableAutoMerge';
+      pullRequestId: string;
+      mergeMethod?: 'MERGE' | 'SQUASH' | 'REBASE';
+    }
+  | {
+      type: 'disableAutoMerge';
       pullRequestId: string;
     }
   | {type: 'fetchLandInfo'; topOfStack: DiffId}
@@ -1219,6 +1234,8 @@ export type ServerToClientMessage =
   | {type: 'fetchedDiffSummaries'; summaries: Result<Map<DiffId, DiffSummary>>; currentUser?: string}
   | {type: 'fetchedDiffComments'; diffId: DiffId; comments: Result<Array<DiffComment>>}
   | {type: 'graphqlReplyResult'; threadId: string; success?: boolean; error?: string}
+  | {type: 'graphqlAddCommentResult'; success?: boolean; error?: string}
+  | {type: 'graphqlEditCommentResult'; commentId: string; success?: boolean; error?: string}
   | {type: 'threadResolutionResult'; threadId: string; isResolved?: boolean; success?: boolean; error?: string}
   | {
       type: 'submittedPullRequestReview';
@@ -1226,6 +1243,28 @@ export type ServerToClientMessage =
     }
   | {
       type: 'publishedPullRequest';
+      result: Result<{pullRequestId: string}>;
+    }
+  | {
+      type: 'fetchedPRMergeState';
+      prNumber: DiffId;
+      result: Result<{
+        mergeable?: MergeableState;
+        mergeStateStatus?: MergeStateStatus;
+        viewerCanMergeAsAdmin?: boolean;
+        ciChecks?: CICheckRun[];
+        autoMergeRequest?: {
+          enabledAt: string;
+          mergeMethod: string;
+        } | null;
+      }>;
+    }
+  | {
+      type: 'enabledAutoMerge';
+      result: Result<{pullRequestId: string}>;
+    }
+  | {
+      type: 'disabledAutoMerge';
       result: Result<{pullRequestId: string}>;
     }
   | {type: 'fetchedLandInfo'; topOfStack: DiffId; landInfo: Result<LandInfo>}

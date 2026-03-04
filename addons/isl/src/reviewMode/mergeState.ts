@@ -72,7 +72,24 @@ export function deriveMergeability(pr: PRMergeabilityData): MergeabilityStatus {
 
   // Check detailed merge state status
   if (pr.mergeStateStatus === 'BLOCKED') {
-    reasons.push('Blocked by branch protection rules');
+    // Provide more specific reasons when we can infer them
+    if (pr.signalSummary === 'running') {
+      if (!reasons.some(r => r.includes('CI'))) {
+        reasons.push('Waiting for CI checks to complete');
+      }
+    } else if (pr.signalSummary === 'failed') {
+      if (!reasons.some(r => r.includes('CI'))) {
+        reasons.push('CI checks are failing');
+      }
+    } else if (
+      pr.reviewDecision === 'REVIEW_REQUIRED' &&
+      !reasons.some(r => r.includes('Review') || r.includes('review'))
+    ) {
+      reasons.push('Waiting for required review approvals');
+    } else if (!reasons.some(r => r.includes('CI') || r.includes('review') || r.includes('Review'))) {
+      // Fallback — we can't determine the specific blocker
+      reasons.push('Blocked by branch protection rules');
+    }
   } else if (pr.mergeStateStatus === 'BEHIND') {
     reasons.push('Branch is behind base branch');
   } else if (pr.mergeStateStatus === 'DRAFT') {

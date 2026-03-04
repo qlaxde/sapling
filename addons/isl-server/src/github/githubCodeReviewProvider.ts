@@ -6,7 +6,6 @@
  */
 
 import type {
-  CICheckRun,
   ClientToServerMessage,
   CodeReviewSystem,
   CommandArg,
@@ -43,7 +42,7 @@ import {
   StatusState,
 } from './generated/graphql';
 import type {CombinedPRQueryData, CombinedPRQueryVariables} from './CombinedPRQuery';
-import {CombinedPRQueryWithMergeQueue, CombinedPRQueryWithoutMergeQueue} from './CombinedPRQuery';
+import {CombinedPRQuery} from './CombinedPRQuery';
 import {parseStackInfo, type StackEntry} from './parseStackInfo';
 import queryGraphQL from './queryGraphQL';
 import {publishPullRequest} from './publishPullRequest';
@@ -53,7 +52,7 @@ export type GitHubDiffSummary = {
   type: 'github';
   title: string;
   commitMessage: string;
-  state: PullRequestState | 'DRAFT' | 'MERGE_QUEUED';
+  state: PullRequestState | 'DRAFT';
   number: DiffId;
   /** GitHub GraphQL node ID, required for mutations like addPullRequestReview */
   nodeId: string;
@@ -62,12 +61,16 @@ export type GitHubDiffSummary = {
   anyUnresolvedComments: false;
   signalSummary?: DiffSignalSummary;
   reviewDecision?: PullRequestReviewDecision;
+  /** Latest review state per reviewer (from latestReviews query) */
+  latestReviews?: Array<{state: string; author?: string; publishedAt?: string}>;
   /** Base of the Pull Request (public parent), as it is on GitHub (may be out of date) */
   base: Hash;
   /** Head of the Pull Request (topmost commit), as it is on GitHub (may be out of date) */
   head: Hash;
   /** Name of the branch on GitHub, which should match the local bookmark */
   branchName?: string;
+  /** Name of the base branch this PR targets (e.g., "main" or "pr4565" for stacked PRs) */
+  baseRefName?: string;
   /** Stack info parsed from PR body Sapling footer. Top-to-bottom order (first = top of stack). */
   stackInfo?: StackEntry[];
   /** Author login (GitHub username) */
@@ -78,8 +81,6 @@ export type GitHubDiffSummary = {
   mergeable?: MergeableState;
   /** Detailed merge state status */
   mergeStateStatus?: MergeStateStatus;
-  /** Individual CI check runs for detailed status display */
-  ciChecks?: CICheckRun[];
   /** Whether viewer can bypass branch protection to merge */
   viewerCanMergeAsAdmin?: boolean;
 };
@@ -98,7 +99,6 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     private logger: Logger,
   ) {}
   private diffSummaries = new TypedEventEmitter<'data', DiffSummariesData>();
-  private hasMergeQueueSupport: boolean | null = null;
   /** Time range in days for filtering PRs. undefined means "all time". */
   private timeRangeDays: number | undefined = 7;
 
@@ -122,10 +122,6 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     };
   }
 
-  /**
-   * Fetch all PR data in a single GraphQL request using aliases.
-   * Combines merge queue detection, open PRs, and closed PRs into one gh call.
-   */
   private async fetchAllPRData(): Promise<CombinedPRQueryData | undefined> {
     const repoFilter = `repo:${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo}`;
     const openQuery = `${repoFilter} is:pr is:open sort:updated-desc`;
@@ -138,29 +134,7 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     }
 
     const variables: CombinedPRQueryVariables = {openQuery, closedQuery, numToFetch: 100};
-    // Only include mergeQueueEntry fields after we've confirmed support via __type introspection.
-    // On first call (null), use WithoutMergeQueue to avoid schema errors on repos without merge queues.
-    const query = this.hasMergeQueueSupport === true
-      ? CombinedPRQueryWithMergeQueue
-      : CombinedPRQueryWithoutMergeQueue;
-
-    const result = await this.query<CombinedPRQueryData, CombinedPRQueryVariables>(
-      query,
-      variables,
-    );
-
-    if (result == null) {
-      return undefined;
-    }
-
-    // Cache merge queue support for future queries
-    const hasMergeQueue = result.__type != null;
-    if (this.hasMergeQueueSupport == null) {
-      this.logger.info('set merge queue support to ' + hasMergeQueue);
-    }
-    this.hasMergeQueueSupport = hasMergeQueue;
-
-    return result;
+    return this.query<CombinedPRQueryData, CombinedPRQueryVariables>(CombinedPRQuery, variables);
   }
 
   triggerDiffSummariesFetch = debounce(
@@ -169,7 +143,6 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
         this.logger.info('fetching github PR summaries');
         const result = await this.fetchAllPRData();
 
-        // Merge open + closed nodes, deduplicate by PR number
         const openNodes = result?.open?.nodes ?? [];
         const closedNodes = result?.closed?.nodes ?? [];
         if (openNodes.length === 0 && closedNodes.length === 0) {
@@ -203,11 +176,9 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
               state:
                 summary.isDraft && summary.state === PullRequestState.Open
                   ? 'DRAFT'
-                  : summary.mergeQueueEntry != null
-                    ? 'MERGE_QUEUED'
-                    : summary.state,
+                  : summary.state,
               number: id,
-              nodeId: '',
+              nodeId: summary.id,
               url: summary.url,
               commentCount: summary.comments.totalCount,
               anyUnresolvedComments: false,
@@ -215,16 +186,19 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
                 summary.commits.nodes?.[0]?.commit.statusCheckRollup?.state,
               ),
               reviewDecision: summary.reviewDecision ?? undefined,
+              latestReviews: summary.latestReviews?.nodes
+                ?.filter((r): r is NonNullable<typeof r> => r != null)
+                .map(r => ({state: r.state, author: r.author?.login, publishedAt: r.publishedAt ?? undefined})),
               base: summary.baseRef?.target?.oid ?? '',
               head: summary.headRef?.target?.oid ?? '',
               branchName: summary.headRef?.name ?? '',
+              baseRefName: summary.baseRef?.name ?? undefined,
               stackInfo,
               author: summary.author?.login ?? undefined,
               authorAvatarUrl: summary.author?.avatarUrl ?? undefined,
-              mergeable: summary.mergeable as MergeableState | undefined,
-              mergeStateStatus: summary.mergeStateStatus as MergeStateStatus | undefined,
-              ciChecks: extractCIChecks(summary),
-              viewerCanMergeAsAdmin: summary.viewerCanMergeAsAdmin ?? undefined,
+              // mergeable, mergeStateStatus, and viewerCanMergeAsAdmin are omitted
+              // from the bulk query to avoid GitHub 502 timeouts. They are only
+              // needed in merge/review mode and can be lazy-loaded per-PR.
             });
           }
         }
@@ -232,10 +206,6 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
         this.diffSummaries.emit('data', {summaries: map, currentUser});
       } catch (error) {
         this.logger.info('error fetching github PR summaries: ', error);
-        // If the merge queue query variant failed (unsupported schema), retry with the other
-        if (this.hasMergeQueueSupport == null) {
-          this.hasMergeQueueSupport = false;
-        }
         this.diffSummaries.emit('error', error as Error);
       }
     },
@@ -278,9 +248,11 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
         const threadKey = `${reviewComment.path ?? ''}:${reviewComment.line ?? ''}`;
         const threadInfo = threadMap.get(threadKey);
         return {
+          id: (comment as {id?: string}).id,
           author: comment.author?.login ?? '',
           authorAvatarUri: comment.author?.avatarUrl,
           html: comment.bodyHTML,
+          content: (comment as {body?: string}).body,
           created: new Date(comment.createdAt),
           filename: reviewComment.path ?? undefined,
           line: reviewComment.line ?? undefined,
@@ -433,6 +405,71 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     }
   }
 
+  /**
+   * Post an immediate issue comment on a PR (not part of a review).
+   * Uses GitHub's addComment mutation with the PR's node ID.
+   */
+  public async addIssueComment(subjectId: string, body: string): Promise<void> {
+    const mutation = `
+      mutation AddComment($subjectId: ID!, $body: String!) {
+        addComment(input: {subjectId: $subjectId, body: $body}) {
+          commentEdge {
+            node { id }
+          }
+        }
+      }
+    `;
+
+    const response = await this.query<
+      {addComment?: {commentEdge?: {node?: {id: string} | null} | null} | null},
+      {subjectId: string; body: string}
+    >(mutation, {subjectId, body});
+
+    if (response?.addComment?.commentEdge?.node?.id == null) {
+      throw new Error('Failed to add comment');
+    }
+  }
+
+  /**
+   * Edit an existing comment (issue comment or review comment).
+   * Detects type from the node ID prefix: IC_ = issue comment, else review comment.
+   */
+  public async editComment(commentId: string, body: string): Promise<void> {
+    const isIssueComment = commentId.startsWith('IC_');
+
+    if (isIssueComment) {
+      const mutation = `
+        mutation UpdateIssueComment($id: ID!, $body: String!) {
+          updateIssueComment(input: {id: $id, body: $body}) {
+            issueComment { id }
+          }
+        }
+      `;
+      const response = await this.query<
+        {updateIssueComment?: {issueComment?: {id: string} | null} | null},
+        {id: string; body: string}
+      >(mutation, {id: commentId, body});
+      if (response?.updateIssueComment?.issueComment?.id == null) {
+        throw new Error('Failed to edit issue comment');
+      }
+    } else {
+      const mutation = `
+        mutation UpdateReviewComment($id: ID!, $body: String!) {
+          updatePullRequestReviewComment(input: {pullRequestReviewCommentId: $id, body: $body}) {
+            pullRequestReviewComment { id }
+          }
+        }
+      `;
+      const response = await this.query<
+        {updatePullRequestReviewComment?: {pullRequestReviewComment?: {id: string} | null} | null},
+        {id: string; body: string}
+      >(mutation, {id: commentId, body});
+      if (response?.updatePullRequestReviewComment?.pullRequestReviewComment?.id == null) {
+        throw new Error('Failed to edit review comment');
+      }
+    }
+  }
+
   private query<D, V>(query: string, variables: V, timeoutMs?: number): Promise<D | undefined> {
     return queryGraphQL<D, V>(
       query,
@@ -452,6 +489,18 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     }
     if (message.type === 'publishPullRequest') {
       this.handlePublishPullRequest(message, postMessage);
+      return true;
+    }
+    if (message.type === 'fetchPRMergeState') {
+      this.handleFetchPRMergeState(message, postMessage);
+      return true;
+    }
+    if (message.type === 'enableAutoMerge') {
+      this.handleEnableAutoMerge(message, postMessage);
+      return true;
+    }
+    if (message.type === 'disableAutoMerge') {
+      this.handleDisableAutoMerge(message, postMessage);
       return true;
     }
     return false;
@@ -506,6 +555,199 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     } catch (error) {
       postMessage({
         type: 'publishedPullRequest',
+        result: {error: error as Error},
+      });
+    }
+  }
+
+  private async handleFetchPRMergeState(
+    message: {type: 'fetchPRMergeState'; prNumber: string},
+    postMessage: (message: ServerToClientMessage) => void,
+  ): Promise<void> {
+    const mergeStateQuery = `
+      query PRMergeState($url: URI!) {
+        resource(url: $url) {
+          ... on PullRequest {
+            mergeable
+            mergeStateStatus
+            viewerCanMergeAsAdmin
+            autoMergeRequest {
+              enabledAt
+              mergeMethod
+            }
+            commits(last: 1) {
+              nodes {
+                commit {
+                  statusCheckRollup {
+                    contexts(first: 25) {
+                      nodes {
+                        ... on CheckRun {
+                          __typename
+                          name
+                          status
+                          conclusion
+                          detailsUrl
+                        }
+                        ... on StatusContext {
+                          __typename
+                          context
+                          state
+                          targetUrl
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+    type CheckRunNode = {
+      __typename: 'CheckRun';
+      name: string;
+      status: string;
+      conclusion?: string | null;
+      detailsUrl?: string | null;
+    };
+    type StatusContextNode = {
+      __typename: 'StatusContext';
+      context: string;
+      state: string;
+      targetUrl?: string | null;
+    };
+    type MergeStateData = {
+      resource?: {
+        mergeable?: string;
+        mergeStateStatus?: string;
+        viewerCanMergeAsAdmin?: boolean;
+        autoMergeRequest?: {
+          enabledAt: string;
+          mergeMethod: string;
+        } | null;
+        commits?: {
+          nodes?: Array<{
+            commit: {
+              statusCheckRollup?: {
+                contexts?: {
+                  nodes?: Array<CheckRunNode | StatusContextNode | null>;
+                };
+              } | null;
+            };
+          } | null>;
+        };
+      } | null;
+    };
+
+    try {
+      const response = await this.query<MergeStateData, {url: string}>(mergeStateQuery, {
+        url: this.getPrUrl(message.prNumber),
+      });
+
+      // Convert check run nodes to CICheckRun format
+      const contextNodes =
+        response?.resource?.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes;
+      const ciChecks = contextNodes
+        ?.filter((n): n is CheckRunNode | StatusContextNode => n != null)
+        .map(node => {
+          if (node.__typename === 'CheckRun') {
+            return {
+              name: node.name,
+              status: node.status as any,
+              conclusion: node.conclusion as any,
+              detailsUrl: node.detailsUrl ?? undefined,
+            };
+          }
+          // StatusContext → map to CICheckRun shape
+          return {
+            name: node.context,
+            status: node.state === 'PENDING' ? 'PENDING' as const : 'COMPLETED' as const,
+            conclusion: node.state === 'SUCCESS'
+              ? 'SUCCESS' as const
+              : node.state === 'FAILURE' || node.state === 'ERROR'
+                ? 'FAILURE' as const
+                : undefined,
+            detailsUrl: node.targetUrl ?? undefined,
+          };
+        });
+
+      postMessage({
+        type: 'fetchedPRMergeState',
+        prNumber: message.prNumber,
+        result: {
+          value: {
+            mergeable: response?.resource?.mergeable as any,
+            mergeStateStatus: response?.resource?.mergeStateStatus as any,
+            viewerCanMergeAsAdmin: response?.resource?.viewerCanMergeAsAdmin,
+            ciChecks,
+            autoMergeRequest: response?.resource?.autoMergeRequest ?? null,
+          },
+        },
+      });
+    } catch (error) {
+      postMessage({
+        type: 'fetchedPRMergeState',
+        prNumber: message.prNumber,
+        result: {error: error as Error},
+      });
+    }
+  }
+
+  private async handleEnableAutoMerge(
+    message: {type: 'enableAutoMerge'; pullRequestId: string; mergeMethod?: string},
+    postMessage: (message: ServerToClientMessage) => void,
+  ): Promise<void> {
+    const mutation = `
+      mutation EnableAutoMerge($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod) {
+        enablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId, mergeMethod: $mergeMethod}) {
+          pullRequest {
+            id
+          }
+        }
+      }
+    `;
+    try {
+      await this.query(mutation, {
+        pullRequestId: message.pullRequestId,
+        mergeMethod: message.mergeMethod ?? 'REBASE',
+      });
+      postMessage({
+        type: 'enabledAutoMerge',
+        result: {value: {pullRequestId: message.pullRequestId}},
+      });
+    } catch (error) {
+      postMessage({
+        type: 'enabledAutoMerge',
+        result: {error: error as Error},
+      });
+    }
+  }
+
+  private async handleDisableAutoMerge(
+    message: {type: 'disableAutoMerge'; pullRequestId: string},
+    postMessage: (message: ServerToClientMessage) => void,
+  ): Promise<void> {
+    const mutation = `
+      mutation DisableAutoMerge($pullRequestId: ID!) {
+        disablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId}) {
+          pullRequest {
+            id
+          }
+        }
+      }
+    `;
+    try {
+      await this.query(mutation, {
+        pullRequestId: message.pullRequestId,
+      });
+      postMessage({
+        type: 'disabledAutoMerge',
+        result: {value: {pullRequestId: message.pullRequestId}},
+      });
+    } catch (error) {
+      postMessage({
+        type: 'disabledAutoMerge',
         result: {error: error as Error},
       });
     }
@@ -748,45 +990,6 @@ function githubStatusRollupStateToCIStatus(state: StatusState | undefined): Diff
     case StatusState.Success:
       return 'pass';
   }
-}
-
-/**
- * Extract CI check runs from the GraphQL PR data.
- * Handles both CheckRun (GitHub Checks API) and StatusContext (legacy status API).
- */
-function extractCIChecks(pr: any): CICheckRun[] | undefined {
-  const contexts = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes;
-  if (!contexts || contexts.length === 0) {
-    return undefined;
-  }
-
-  return contexts
-    .filter(notEmpty)
-    .map(context => {
-      if (context.__typename === 'CheckRun') {
-        return {
-          name: context.name ?? 'Unknown',
-          status: (context.status ?? 'QUEUED') as CICheckRun['status'],
-          conclusion: context.conclusion as CICheckRun['conclusion'],
-          detailsUrl: context.detailsUrl,
-        };
-      } else {
-        // StatusContext (legacy status API)
-        return {
-          name: context.context ?? 'Unknown',
-          status: context.state === 'PENDING' ? 'PENDING' : 'COMPLETED',
-          conclusion:
-            context.state === 'SUCCESS'
-              ? 'SUCCESS'
-              : context.state === 'FAILURE'
-                ? 'FAILURE'
-                : context.state === 'ERROR'
-                  ? 'FAILURE'
-                  : undefined,
-          detailsUrl: context.targetUrl,
-        } as CICheckRun;
-      }
-    });
 }
 
 type GitHubNotificationResponse = {
