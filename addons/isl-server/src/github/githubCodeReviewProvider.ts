@@ -44,7 +44,7 @@ import {
 import type {CombinedPRQueryData, CombinedPRQueryVariables} from './CombinedPRQuery';
 import {CombinedPRQuery} from './CombinedPRQuery';
 import {parseStackInfo, type StackEntry} from './parseStackInfo';
-import queryGraphQL from './queryGraphQL';
+import queryGraphQL, {type QueryGraphQLOptions} from './queryGraphQL';
 import {publishPullRequest} from './publishPullRequest';
 import {submitPullRequestReview} from './submitPullRequestReview';
 
@@ -101,6 +101,8 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
   private diffSummaries = new TypedEventEmitter<'data', DiffSummariesData>();
   /** Time range in days for filtering PRs. undefined means "all time". */
   private timeRangeDays: number | undefined = 7;
+  /** Abort controller for the current in-flight diff summaries fetch. */
+  private diffSummariesAbort: AbortController | undefined;
 
   setTimeRange(days: number | undefined): void {
     this.timeRangeDays = days;
@@ -122,7 +124,7 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     };
   }
 
-  private async fetchAllPRData(): Promise<CombinedPRQueryData | undefined> {
+  private async fetchAllPRData(signal?: AbortSignal): Promise<CombinedPRQueryData | undefined> {
     const repoFilter = `repo:${this.codeReviewSystem.owner}/${this.codeReviewSystem.repo}`;
     const openQuery = `${repoFilter} is:pr is:open sort:updated-desc`;
     let closedQuery = `${repoFilter} is:pr -is:open sort:updated-desc`;
@@ -134,14 +136,23 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     }
 
     const variables: CombinedPRQueryVariables = {openQuery, closedQuery, numToFetch: 100};
-    return this.query<CombinedPRQueryData, CombinedPRQueryVariables>(CombinedPRQuery, variables);
+    return this.query<CombinedPRQueryData, CombinedPRQueryVariables>(
+      CombinedPRQuery,
+      variables,
+      {signal},
+    );
   }
 
   triggerDiffSummariesFetch = debounce(
     async () => {
+      // Abort any previous in-flight fetch so we don't pile up concurrent requests
+      this.diffSummariesAbort?.abort();
+      const controller = new AbortController();
+      this.diffSummariesAbort = controller;
+
       try {
         this.logger.info('fetching github PR summaries');
-        const result = await this.fetchAllPRData();
+        const result = await this.fetchAllPRData(controller.signal);
 
         const openNodes = result?.open?.nodes ?? [];
         const closedNodes = result?.closed?.nodes ?? [];
@@ -205,6 +216,11 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
         this.logger.info(`fetched ${map.size} github PR summaries`);
         this.diffSummaries.emit('data', {summaries: map, currentUser});
       } catch (error) {
+        // Don't surface aborted requests as errors — they're intentional
+        if (controller.signal.aborted) {
+          this.logger.info('diff summaries fetch was superseded by a newer request');
+          return;
+        }
         this.logger.info('error fetching github PR summaries: ', error);
         this.diffSummaries.emit('error', error as Error);
       }
@@ -470,13 +486,15 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     }
   }
 
-  private query<D, V>(query: string, variables: V, timeoutMs?: number): Promise<D | undefined> {
-    return queryGraphQL<D, V>(
-      query,
-      variables,
-      this.codeReviewSystem.hostname,
-      timeoutMs ?? DEFAULT_GH_FETCH_TIMEOUT,
-    );
+  private query<D, V>(
+    query: string,
+    variables: V,
+    options?: {timeoutMs?: number; signal?: AbortSignal},
+  ): Promise<D | undefined> {
+    return queryGraphQL<D, V>(query, variables, this.codeReviewSystem.hostname, {
+      timeoutMs: options?.timeoutMs ?? DEFAULT_GH_FETCH_TIMEOUT,
+      signal: options?.signal,
+    });
   }
 
   handleClientToServerMessage(
@@ -493,6 +511,14 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     }
     if (message.type === 'fetchPRMergeState') {
       this.handleFetchPRMergeState(message, postMessage);
+      return true;
+    }
+    if (message.type === 'enableAutoMerge') {
+      this.handleEnableAutoMerge(message, postMessage);
+      return true;
+    }
+    if (message.type === 'disableAutoMerge') {
+      this.handleDisableAutoMerge(message, postMessage);
       return true;
     }
     return false;
@@ -563,15 +589,72 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
             mergeable
             mergeStateStatus
             viewerCanMergeAsAdmin
+            autoMergeRequest {
+              enabledAt
+              mergeMethod
+            }
+            commits(last: 1) {
+              nodes {
+                commit {
+                  statusCheckRollup {
+                    contexts(first: 25) {
+                      nodes {
+                        ... on CheckRun {
+                          __typename
+                          name
+                          status
+                          conclusion
+                          detailsUrl
+                        }
+                        ... on StatusContext {
+                          __typename
+                          context
+                          state
+                          targetUrl
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     `;
+    type CheckRunNode = {
+      __typename: 'CheckRun';
+      name: string;
+      status: string;
+      conclusion?: string | null;
+      detailsUrl?: string | null;
+    };
+    type StatusContextNode = {
+      __typename: 'StatusContext';
+      context: string;
+      state: string;
+      targetUrl?: string | null;
+    };
     type MergeStateData = {
       resource?: {
         mergeable?: string;
         mergeStateStatus?: string;
         viewerCanMergeAsAdmin?: boolean;
+        autoMergeRequest?: {
+          enabledAt: string;
+          mergeMethod: string;
+        } | null;
+        commits?: {
+          nodes?: Array<{
+            commit: {
+              statusCheckRollup?: {
+                contexts?: {
+                  nodes?: Array<CheckRunNode | StatusContextNode | null>;
+                };
+              } | null;
+            };
+          } | null>;
+        };
       } | null;
     };
 
@@ -579,6 +662,34 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
       const response = await this.query<MergeStateData, {url: string}>(mergeStateQuery, {
         url: this.getPrUrl(message.prNumber),
       });
+
+      // Convert check run nodes to CICheckRun format
+      const contextNodes =
+        response?.resource?.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes;
+      const ciChecks = contextNodes
+        ?.filter((n): n is CheckRunNode | StatusContextNode => n != null)
+        .map(node => {
+          if (node.__typename === 'CheckRun') {
+            return {
+              name: node.name,
+              status: node.status as any,
+              conclusion: node.conclusion as any,
+              detailsUrl: node.detailsUrl ?? undefined,
+            };
+          }
+          // StatusContext → map to CICheckRun shape
+          return {
+            name: node.context,
+            status: node.state === 'PENDING' ? 'PENDING' as const : 'COMPLETED' as const,
+            conclusion: node.state === 'SUCCESS'
+              ? 'SUCCESS' as const
+              : node.state === 'FAILURE' || node.state === 'ERROR'
+                ? 'FAILURE' as const
+                : undefined,
+            detailsUrl: node.targetUrl ?? undefined,
+          };
+        });
+
       postMessage({
         type: 'fetchedPRMergeState',
         prNumber: message.prNumber,
@@ -587,6 +698,8 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
             mergeable: response?.resource?.mergeable as any,
             mergeStateStatus: response?.resource?.mergeStateStatus as any,
             viewerCanMergeAsAdmin: response?.resource?.viewerCanMergeAsAdmin,
+            ciChecks,
+            autoMergeRequest: response?.resource?.autoMergeRequest ?? null,
           },
         },
       });
@@ -599,7 +712,67 @@ export class GitHubCodeReviewProvider implements CodeReviewProvider {
     }
   }
 
+  private async handleEnableAutoMerge(
+    message: {type: 'enableAutoMerge'; pullRequestId: string; mergeMethod?: string},
+    postMessage: (message: ServerToClientMessage) => void,
+  ): Promise<void> {
+    const mutation = `
+      mutation EnableAutoMerge($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod) {
+        enablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId, mergeMethod: $mergeMethod}) {
+          pullRequest {
+            id
+          }
+        }
+      }
+    `;
+    try {
+      await this.query(mutation, {
+        pullRequestId: message.pullRequestId,
+        mergeMethod: message.mergeMethod ?? 'REBASE',
+      });
+      postMessage({
+        type: 'enabledAutoMerge',
+        result: {value: {pullRequestId: message.pullRequestId}},
+      });
+    } catch (error) {
+      postMessage({
+        type: 'enabledAutoMerge',
+        result: {error: error as Error},
+      });
+    }
+  }
+
+  private async handleDisableAutoMerge(
+    message: {type: 'disableAutoMerge'; pullRequestId: string},
+    postMessage: (message: ServerToClientMessage) => void,
+  ): Promise<void> {
+    const mutation = `
+      mutation DisableAutoMerge($pullRequestId: ID!) {
+        disablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId}) {
+          pullRequest {
+            id
+          }
+        }
+      }
+    `;
+    try {
+      await this.query(mutation, {
+        pullRequestId: message.pullRequestId,
+      });
+      postMessage({
+        type: 'disabledAutoMerge',
+        result: {value: {pullRequestId: message.pullRequestId}},
+      });
+    } catch (error) {
+      postMessage({
+        type: 'disabledAutoMerge',
+        result: {error: error as Error},
+      });
+    }
+  }
+
   public dispose() {
+    this.diffSummariesAbort?.abort();
     this.diffSummaries.removeAllListeners();
     this.triggerDiffSummariesFetch.dispose();
   }

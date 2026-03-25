@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {DiffSummary} from '../types';
+import type {CICheckRun, DiffSummary} from '../types';
 
 import type {MergeableState, MergeStateStatus} from '../types';
 
@@ -20,6 +20,7 @@ import {useRunOperation} from '../operationsState';
 import {MergePROperation} from '../operations/MergePROperation';
 import {ClosePROperation} from '../operations/ClosePROperation';
 import {SyncPROperation} from '../operations/SyncPROperation';
+import {CIStatusBadge} from './CIStatusBadge';
 import {
   deriveMergeability,
   formatMergeBlockReasons,
@@ -73,12 +74,14 @@ export function MergeControls({prNumber}: MergeControlsProps) {
   const isStaleStack = currentStack?.hasStaleAbove ?? false;
   const mergedAbovePrNumber = currentStack?.mergedAbovePrNumber;
 
-  // Lazy-load merge state fields (mergeable, mergeStateStatus, viewerCanMergeAsAdmin)
-  // for this single PR. These are too expensive to fetch in bulk for all PRs.
+  // Lazy-load merge state fields (mergeable, mergeStateStatus, viewerCanMergeAsAdmin,
+  // ciChecks, autoMergeRequest) for this single PR. Too expensive to fetch in bulk.
   const [mergeState, setMergeState] = useState<{
     mergeable?: MergeableState;
     mergeStateStatus?: MergeStateStatus;
     viewerCanMergeAsAdmin?: boolean;
+    ciChecks?: CICheckRun[];
+    autoMergeRequest?: {enabledAt: string; mergeMethod: string} | null;
     loading: boolean;
   }>({loading: true});
 
@@ -141,6 +144,7 @@ export function MergeControls({prNumber}: MergeControlsProps) {
         mergeable,
         mergeStateStatus,
         state: isGitHubDiffSummary(pr) ? pr.state : undefined,
+        ciChecks: mergeState.ciChecks,
       })
     : {canMerge: false, reasons: ['Loading PR data...']};
 
@@ -243,6 +247,66 @@ export function MergeControls({prNumber}: MergeControlsProps) {
       setIsPublishing(false);
     }
   }, [prNodeId, isPublishing]);
+
+  const autoMergeEnabled = mergeState.autoMergeRequest != null;
+  const [isTogglingAutoMerge, setIsTogglingAutoMerge] = useState(false);
+
+  const handleEnableAutoMerge = useCallback(async () => {
+    if (isTogglingAutoMerge || !prNodeId) {
+      return;
+    }
+    setIsTogglingAutoMerge(true);
+    try {
+      serverAPI.postMessage({
+        type: 'enableAutoMerge',
+        pullRequestId: prNodeId,
+        mergeMethod: 'REBASE',
+      });
+      const response = await serverAPI.nextMessageMatching(
+        'enabledAutoMerge',
+        () => true,
+      );
+      if (response.result.error) {
+        showToast(t('Failed to enable auto-merge: $error', {replace: {$error: response.result.error.message}}), {durationMs: 8000});
+      } else {
+        showToast(t('Auto-merge enabled'), {durationMs: 3000});
+        // Re-fetch merge state to update autoMergeRequest
+        serverAPI.postMessage({type: 'fetchPRMergeState', prNumber});
+      }
+    } catch (error) {
+      showToast(t('Failed to enable auto-merge: $error', {replace: {$error: String(error)}}), {durationMs: 8000});
+    } finally {
+      setIsTogglingAutoMerge(false);
+    }
+  }, [prNodeId, prNumber, isTogglingAutoMerge]);
+
+  const handleDisableAutoMerge = useCallback(async () => {
+    if (isTogglingAutoMerge || !prNodeId) {
+      return;
+    }
+    setIsTogglingAutoMerge(true);
+    try {
+      serverAPI.postMessage({
+        type: 'disableAutoMerge',
+        pullRequestId: prNodeId,
+      });
+      const response = await serverAPI.nextMessageMatching(
+        'disabledAutoMerge',
+        () => true,
+      );
+      if (response.result.error) {
+        showToast(t('Failed to disable auto-merge: $error', {replace: {$error: response.result.error.message}}), {durationMs: 8000});
+      } else {
+        showToast(t('Auto-merge disabled'), {durationMs: 3000});
+        // Re-fetch merge state to update autoMergeRequest
+        serverAPI.postMessage({type: 'fetchPRMergeState', prNumber});
+      }
+    } catch (error) {
+      showToast(t('Failed to disable auto-merge: $error', {replace: {$error: String(error)}}), {durationMs: 8000});
+    } finally {
+      setIsTogglingAutoMerge(false);
+    }
+  }, [prNodeId, prNumber, isTogglingAutoMerge]);
 
   if (!pr || mergeState.loading) {
     return (
@@ -497,6 +561,41 @@ export function MergeControls({prNumber}: MergeControlsProps) {
           ))}
         </div>
       )}
+
+      {mergeState.ciChecks && mergeState.ciChecks.length > 0 && (
+        <div className="merge-ci-checks">
+          <CIStatusBadge signalSummary={pr?.signalSummary} ciChecks={mergeState.ciChecks} />
+        </div>
+      )}
+
+      {autoMergeEnabled ? (
+        <div className="merge-auto-merge-row">
+          <Icon icon="rocket" />
+          <span className="merge-auto-merge-label"><T>Auto-merge enabled</T></span>
+          <Button
+            className="auto-merge-toggle-btn auto-merge-toggle-off"
+            disabled={isTogglingAutoMerge}
+            onClick={handleDisableAutoMerge}>
+            {isTogglingAutoMerge ? <Icon icon="loading" /> : <T>Disable</T>}
+          </Button>
+        </div>
+      ) : !canMerge && filteredReasons.length > 0 && prNodeId ? (
+        <div className="merge-auto-merge-row">
+          <Button
+            className="auto-merge-toggle-btn auto-merge-toggle-on"
+            disabled={isTogglingAutoMerge}
+            onClick={handleEnableAutoMerge}>
+            {isTogglingAutoMerge ? (
+              <Icon icon="loading" slot="start" />
+            ) : (
+              <>
+                <Icon icon="rocket" slot="start" />
+                <T>Auto-merge</T>
+              </>
+            )}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
